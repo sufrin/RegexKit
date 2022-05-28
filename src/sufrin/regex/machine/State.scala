@@ -7,7 +7,7 @@ import  sufrin.regex.machine.Program._
  *  The (start,end) indices of `Group`ed expressions recognised so far
  *  are saved as `groups`.
  */
-class Fibre[T](program: Program[T], val pc: Int, groups: Groups) {
+class Fibre[T](program: Program[T], val pc: Int, val groups: Groups) {
 
   def ==(that: Fibre[T]): Boolean = pc==that.pc
 
@@ -82,27 +82,29 @@ class State[T](program: Program[T], groups: Groups) {
         case Next(groups) =>
           pending.addAt(pc+1, { new Fibre[T](program, pc+1, groups) })
           None
+          /*
         case UpdateStart(group) =>
           current.addAt(pc+1, { new Fibre[T](program, pc+1, groups.setStart(group, sourcePos)) })
           None
         case UpdateEnd(group) =>
           current.addAt(pc+1, { new Fibre[T](program, pc+1, groups.setEnd(group, sourcePos)) })
           None
+           */
         case Schedule(apc, groups) =>
           current.addAt(apc, { new Fibre[T](program, apc, groups) })
           None
         case Schedule2(pc1, pc2, groups) =>
-          current.addAt(pc1, { new Fibre[T](program, pc1, groups) })
           current.addAt(pc2, { new Fibre[T](program, pc2, groups) })
+          current.addAt(pc1, { new Fibre[T](program, pc1, groups) })
           None
         case Success(branch: Int) =>
           Some(branch)
       }
   }
 
-  def run(input: IndexedSeq[T], start: Int, end: Int): Option[(Int, Fibre[T])] = {
+  def run(input: IndexedSeq[T], start: Int, end: Int): Option[(Int, Groups)] = {
     var pos = start
-    var result: Option[(Int, Fibre[T])] = None
+    var result: Option[(Int, Groups)] = None
     current.addAt(0, new Fibre(program, 0, groups))
 
     println(this)
@@ -112,11 +114,12 @@ class State[T](program: Program[T], groups: Groups) {
       println(s"$in@$pos")
       while (current.nonEmpty && result.isEmpty) {
         val fibre = current.fetchFibre()
+        val groups = fibre.groups
         execute(pos, in, fibre.pc, groups) match {
           case None =>
 
           case Some(branch) =>
-            result = Some(branch, fibre)
+            result = Some(branch, fibre.groups)
         }
       }
       pos += 1
