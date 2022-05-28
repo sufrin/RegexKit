@@ -1,0 +1,5 @@
+
+*.class
+trace
+*.pdf
+out/production/RegexKit/test1.sc
