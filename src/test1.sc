@@ -11,6 +11,6 @@ val c0 = p0.compile()
 val s = new State[Char](c0, Groups.empty)
 s.run(text, 0, text.length)
 
-val c1 = Alt(Str("abcdef"), Str("abc")).compile()
+val c1 = Alt(Str("abcdef"), Group(Str("abc"), true)).compile()
 new State(c1, Groups.empty).run(text, 0, text.length)
 

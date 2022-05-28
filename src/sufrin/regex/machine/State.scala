@@ -67,13 +67,13 @@ class FibreSet[T](program: Program[T]) {
 class State[T](program: Program[T], groups: Groups) {
   val l, r = new FibreSet(program)
   var (current, pending) = (l, r)
-  @inline def swapFibreSets: Unit = { val t = current; current = pending; pending = t; pending.clear() }
+  @inline def swapFibreSets(): Unit = { val t = current; current = pending; pending = t; pending.clear() }
 
   /** Returns None if the executed instruction wasn't the `Success` at the end of the program;
    * otherwise returns the branch of the top-level alternation that
    * succeeded.
    */
-  def execute(sourcePos: Int, t: T, pc: Int, groups: Groups): Option[Int] = {
+  def execute(sourcePos: Int, t: T, pc: Int, groups: Groups): Option[(Int, Groups)] = {
     val result = program(pc).execute(sourcePos, t, pc, groups)
     println(s"$pc: ${program(pc)} ($sourcePos, $t, $pc) = $result")
     result match {
@@ -82,14 +82,6 @@ class State[T](program: Program[T], groups: Groups) {
         case Next(groups) =>
           pending.addAt(pc+1, { new Fibre[T](program, pc+1, groups) })
           None
-          /*
-        case UpdateStart(group) =>
-          current.addAt(pc+1, { new Fibre[T](program, pc+1, groups.setStart(group, sourcePos)) })
-          None
-        case UpdateEnd(group) =>
-          current.addAt(pc+1, { new Fibre[T](program, pc+1, groups.setEnd(group, sourcePos)) })
-          None
-           */
         case Schedule(apc, groups) =>
           current.addAt(apc, { new Fibre[T](program, apc, groups) })
           None
@@ -97,8 +89,8 @@ class State[T](program: Program[T], groups: Groups) {
           current.addAt(pc2, { new Fibre[T](program, pc2, groups) })
           current.addAt(pc1, { new Fibre[T](program, pc1, groups) })
           None
-        case Success(branch: Int) =>
-          Some(branch)
+        case Success(branch: Int, groups: Groups) =>
+          Some(branch, groups)
       }
   }
 
@@ -116,14 +108,13 @@ class State[T](program: Program[T], groups: Groups) {
         val fibre = current.fetchFibre()
         val groups = fibre.groups
         execute(pos, in, fibre.pc, groups) match {
-          case None =>
-
-          case Some(branch) =>
-            result = Some(branch, fibre.groups)
+          case None  =>
+          case other =>
+            result = other
         }
       }
       pos += 1
-      swapFibreSets
+      swapFibreSets()
     }
     result
   }

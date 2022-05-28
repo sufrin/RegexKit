@@ -11,7 +11,7 @@ trait Regex[T]  {
   def compile(): Program[T] = {
     val builder = new Builder[T]
     builder += machine.Start(0)
-    compile(0, builder)
+    compile(1, builder)
     builder += machine.End(0)
     builder += machine.Matched(-1)
     for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
