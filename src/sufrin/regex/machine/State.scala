@@ -3,9 +3,12 @@ import  sufrin.regex.machine.Program._
 
 
 
-class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var trace: Boolean=false) {
+class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
   val l, r = new FibreSet(program)
   var (current, pending) = (l, r)
+
+  var lastResult: Option[(Int, Groups)] = None
+
   @inline def swapFibreSets(): Unit = { val t = current; current = pending; pending = t; pending.clear() }
 
   /**
@@ -23,7 +26,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    */
   def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Option[(Int, Groups)] = {
     val result = program(pc).execute(start, end, sourcePos, in, pc, groups)
-    if (trace) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $result")
+    if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $result")
     result match {
         case Stop =>
           None
@@ -42,10 +45,9 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       }
   }
 
-  def run(trace: Boolean = false): Option[(Int, Groups)] = {
+  def run(tracePos: Boolean = false): Option[(Int, Groups)] = {
     var pos                           = start
     var result: Option[(Int, Groups)] = None
-    this.trace = trace
 
     @inline def computeClosure(in: T): Option[(Int, Groups)] = {
       var result: Option[(Int, Groups)] = None
@@ -56,6 +58,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         result = execute(pos, in, fibre.pc, groups)
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
+        if (result.nonEmpty) lastResult = result
         if (result.nonEmpty && pending.nonEmpty && pos<end)  result = None
       }
       result
@@ -65,7 +68,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
     while (result.isEmpty && current.nonEmpty && pos<end) {
       val in = input(pos)
-      println(s"$in@$pos")
+      if (tracePos) println(s"$in@$pos")
       result = computeClosure(in)
       //if (pending.nonEmpty) println(s"Pending: $pending")
       pos += 1
@@ -73,10 +76,10 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     }
     // Reached the end of the input, but there may still be some housekeeping
     // action for groups, anchors etc.
-    if (this.trace) println("Cleanup:")
+    if (tracePos) println("Cleanup:")
     // Cleaning up may still yield a result, if there is an anchor
     computeClosure(arbitraryInput) match {
-      case None    =>
+      case None    => result = lastResult
       case success => result = success
     }
 
