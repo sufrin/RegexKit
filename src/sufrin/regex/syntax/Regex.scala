@@ -8,13 +8,13 @@ trait Regex[T]  {
   def |(r: Regex[T]): Regex[T] = Alt(this, r)
   def +(r: Regex[T]): Regex[T] = Seq(List(this, r))
 
-  def compile(): Program[T] = {
+  def compile(showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
     builder += machine.Start(0)
     compile(1, builder)
     builder += machine.End(0)
     builder += machine.Matched(-1)
-    for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
+    if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
     builder.toProgram
   }
 }
@@ -107,12 +107,6 @@ case class Group[T](expr: Regex[T], capture: Boolean) extends Regex[T] {
           groups_ + 1
     } else
       expr.compile(groups, program)
-  }
-
-  override def compile(): Program[T] = {
-    val builder = new Builder[T]
-    compile(0, builder)
-    builder.toProgram
   }
 
   def reversed: Regex[T] = Group(expr.reversed, capture)
