@@ -26,6 +26,7 @@ case class Literal[T](v: T)                extends Regex[T] {
   }
   def reversed: Regex[T] = this
 }
+
 case class Sat[T](sat: T => Boolean)       extends Regex[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     program += machine.Sat(sat)
@@ -33,13 +34,13 @@ case class Sat[T](sat: T => Boolean)       extends Regex[T] {
   }
   def reversed: Regex[T] = this
 }
+
 case class Seq[T](seq: collection.Seq[Regex[T]])  extends Regex[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     var g = groups
     for { expr <- seq } g = expr.compile(g, program)
     g
   }
-
   def reversed: Regex[T] = Seq(seq.reverse.map(_.reversed))
 }
 
@@ -49,9 +50,9 @@ case class Alt[T](l: Regex[T], r: Regex[T])  extends Regex[T] {
     program      += machine.Fork(lAlt)
     val groups_  = l.compile(groups, program)
     program      += machine.Jump(lEnd)
-    lAlt.loc     = program.length
+    program.define(lAlt)
     val groups__ = r.compile(groups_, program)
-    lEnd.loc     = program.length
+    program.define(lEnd)
     groups__
   }
 
@@ -80,12 +81,12 @@ case class Branches[T](branches: collection.Seq[Regex[T]]) extends Regex[T] {
     program     += machine.Jump(lFork)
 
     for { branch <- 0 until branches.length } {
-      lStarts(branch).loc = program.length
+      program.define(lStarts(branch))
       groups_ = branches(branch).compile(groups_, program)
       program += machine.Matched(branch)
     }
 
-    lFork.loc   = program.length
+    program.define(lFork)
     for { lStart <- lStarts.init }
       program += machine.Fork(lStart)
 
@@ -115,5 +116,24 @@ case class Group[T](expr: Regex[T], capture: Boolean) extends Regex[T] {
   }
 
   def reversed: Regex[T] = Group(expr.reversed, capture)
+}
+
+/** Matches at the start of the examined sequence */
+case class AnchorStart[T](expr: Regex[T]) extends Regex[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    program += machine.AtStart
+    expr.compile(groups, program)
+  }
+  def reversed: Regex[T] = AnchorEnd(expr.reversed)
+}
+
+/** Matches at the start of the examined sequence */
+case class AnchorEnd[T](expr: Regex[T]) extends Regex[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    val groups_ = expr.compile(groups, program)
+    program += machine.AtEnd
+    groups_
+  }
+  def reversed: Regex[T] = AnchorStart(expr.reversed)
 }
 
