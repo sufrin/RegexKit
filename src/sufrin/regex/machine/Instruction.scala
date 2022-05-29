@@ -11,48 +11,71 @@ case class Success(branch: Int, groups: Groups)             extends Result // wh
 
 case class Lab[T](var loc: Int)
 
-trait Instruction[T] {
-  /** Execute the instruction and yield a continuation  */
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result
+trait Instruction[-T] {
+  /** Execute the instruction and yield a continuation.
+   *
+   *  '''Requires'''
+   *
+   *      `start <= sourcePos <= end`
+   *
+   *      `sourcePos < end => in is a valid object of type T`
+   */
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result
 }
 
 case class Monitor[T](run: () => Unit) extends Instruction[T] {
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result = Schedule(pc+1, groups)
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result = Schedule(pc+1, groups)
 }
 
 case class Lit[T](value: T)           extends Instruction[T] {
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
       if (in==value) Next(groups) else Stop
 }
 
 case class Sat[T](sat: T => Boolean)  extends Instruction[T]{
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
       if (sat(in)) Next(groups) else Stop
 }
 
+case object AtStart   extends Instruction[Any]{
+  def execute(start: Int, end: Int, sourcePos: Int, in: Any, pc: Int, groups: Groups): Result =
+    if (sourcePos==start) Schedule(pc+1, groups) else Stop
+}
+
+case object AtEnd   extends Instruction[Any]{
+  def execute(start: Int, end: Int, sourcePos: Int, in: Any, pc: Int, groups: Groups): Result =
+    if (sourcePos==end) Schedule(pc+1, groups) else Stop
+}
+
+case object Anything extends Instruction[Any] {
+  def execute(start: Int, end: Int, sourcePos: Int, in: Any, pc: Int, groups: Groups): Result =
+    Next(groups)
+}
+
 case class Start[T](group: Int)       extends Instruction[T]{
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
-       Schedule(pc+1, groups.setStart(group, sourcePos))
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+       Schedule(pc+1, groups.withStart(group, sourcePos))
 }
 
 case class End[T]  (group: Int)       extends Instruction[T]{
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
-       Schedule(pc+1, groups.setEnd(group, sourcePos))
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+       Schedule(pc+1, groups.withEnd(group, sourcePos))
 }
 
 case class Jump[T] (label: Lab[T])       extends Instruction[T]{
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
        Schedule(label.loc, groups)
 }
 
 case class Fork[T] (label: Lab[T])       extends Instruction[T]{
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
        Schedule2(pc+1, label.loc, groups)
 }
 
 case class Matched[T](branch: Int)    extends Instruction[T]{
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
        Success(branch, groups)
 }
+
 
 
