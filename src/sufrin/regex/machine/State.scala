@@ -1,121 +1,85 @@
 package sufrin.regex.machine
 import  sufrin.regex.machine.Program._
 
-/** State of a single thread of a recogniser running the given program
- *  Two fibres running the same program are equal if they have the same pc.
- *  We '''never''' compare Fibres from different programs.
- *  The (start,end) indices of `Group`ed expressions recognised so far
- *  are saved as `groups`.
- */
-class Fibre[T](program: Program[T], val pc: Int, val groups: Groups) {
-
-  def ==(that: Fibre[T]): Boolean = pc==that.pc
-
-  override def toString: String =
-    s"Fibre($pc, $groups)"
-
-  // Stock overrides in case we use (hashed) collections
-  override def equals(that: Any): Boolean =
-    that match {
-      case f: Fibre[T] => pc == f.pc
-      case that        => require(false, "$this == $that is a badly-typed equality"); false
-    }
-
-  override def hashCode: Int = pc
-}
-
-/** A set of fibres for the program `program`, organised as a stack */
-class FibreSet[T](program: Program[T]) {
-  private val present   = Array.ofDim[Boolean](program.length)
-  private val set       = Array.ofDim[Fibre[T]](program.length)
-  private var size      = 0
-  def nonEmpty: Boolean = size>0
-
-  def clear(): Unit = {
-     for { i<-0 until program.length } {
-       set(i)     = null        // redundant
-       present(i) = false
-     }
-     size = 0
-  }
-
-  locally { clear() }
-
-  def addAt(pc: Int, fibre: => Fibre[T]): Unit = {
-     if (!present(pc))  {
-       set(size)   = fibre
-       present(pc) = true
-       size += 1
-       println(s"add ${size-1}: ${set(size-1)}")
-     } else {
-       println(s"add: $pc was present")
-     }
-  }
-
-  def fetchFibre(): Fibre[T] = {
-    size -= 1
-    val f = set(size)
-    set(size) = null // for garbage collector
-    present(f.pc) = false
-    f
-  }
-
-  override def toString: String = (for { i <- 0 until size if present(i) } yield set(i)).mkString("\n ")
-}
 
 
-class State[T](program: Program[T], groups: Groups) {
+class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var trace: Boolean=false) {
   val l, r = new FibreSet(program)
   var (current, pending) = (l, r)
   @inline def swapFibreSets(): Unit = { val t = current; current = pending; pending = t; pending.clear() }
 
-  /** Returns None if the executed instruction wasn't the `Success` at the end of the program;
-   * otherwise returns the branch of the top-level alternation that
-   * succeeded.
+  /**
+   *  Instructions are treated homogeneously right now, and all receive the context for their
+   *  execution: `execute(start, end, sourcePos, in, pc, groups)`. This makes adding new kinds of instruction
+   *  very straightforward -- but at the cost of needing an arbitrary in value to supply
+   *  to the housekeeping instructions that are executed after the end of the input-proper
+   *  has been reached.
    */
-  def execute(sourcePos: Int, t: T, pc: Int, groups: Groups): Option[(Int, Groups)] = {
-    val result = program(pc).execute(sourcePos, t, pc, groups)
-    println(s"$pc: ${program(pc)} ($sourcePos, $t, $pc) = $result")
+  private var arbitraryInput: T = _
+
+  /** Returns `None` if the executed instruction wasn't the `Success` at the end of the program;
+   * otherwise returns the index of the top-level branch that
+   * succeeded, and the spans that captured starting and ending positions of
+   */
+  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Option[(Int, Groups)] = {
+    val result = program(pc).execute(start, end, sourcePos, in, pc, groups)
+    if (trace) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $result")
     result match {
         case Stop =>
           None
         case Next(groups) =>
-          pending.addAt(pc+1, { new Fibre[T](program, pc+1, groups) })
+          pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })
           None
         case Schedule(apc, groups) =>
-          current.addAt(apc, { new Fibre[T](program, apc, groups) })
+          current.addFibre(apc, { new Fibre[T](apc, groups) })
           None
         case Schedule2(pc1, pc2, groups) =>
-          current.addAt(pc2, { new Fibre[T](program, pc2, groups) })
-          current.addAt(pc1, { new Fibre[T](program, pc1, groups) })
+          current.addFibre(pc1, { new Fibre[T](pc1, groups) })
+          current.addFibre(pc2, { new Fibre[T](pc2, groups) })
           None
         case Success(branch: Int, groups: Groups) =>
           Some(branch, groups)
       }
   }
 
-  def run(input: IndexedSeq[T], start: Int, end: Int): Option[(Int, Groups)] = {
-    var pos = start
+  def run(trace: Boolean = false): Option[(Int, Groups)] = {
+    var pos                           = start
     var result: Option[(Int, Groups)] = None
-    current.addAt(0, new Fibre(program, 0, groups))
+    this.trace = trace
 
-    println(this)
-
-    while (result.isEmpty && current.nonEmpty && pos<end) {
-      var in = input(pos)
-      println(s"$in@$pos")
+    @inline def computeClosure(in: T): Option[(Int, Groups)] = {
+      var result: Option[(Int, Groups)] = None
       while (current.nonEmpty && result.isEmpty) {
+        //if (current.nonEmpty) println(s"Current: $current")
         val fibre = current.fetchFibre()
         val groups = fibre.groups
-        execute(pos, in, fibre.pc, groups) match {
-          case None  =>
-          case other =>
-            result = other
-        }
+        result = execute(pos, in, fibre.pc, groups)
+        // A candidate result appeared, but other threads are still active
+        // and may match a longer sequence, so reject the candidate
+        if (result.nonEmpty && pending.nonEmpty && pos<end)  result = None
       }
+      result
+    }
+
+    current.addFibre(0, new Fibre(0, groups))
+
+    while (result.isEmpty && current.nonEmpty && pos<end) {
+      val in = input(pos)
+      println(s"$in@$pos")
+      result = computeClosure(in)
+      //if (pending.nonEmpty) println(s"Pending: $pending")
       pos += 1
       swapFibreSets()
     }
+    // Reached the end of the input, but there may still be some housekeeping
+    // action for groups, anchors etc.
+    if (this.trace) println("Cleanup:")
+    // Cleaning up may still yield a result, if there is an anchor
+    computeClosure(arbitraryInput) match {
+      case None    =>
+      case success => result = success
+    }
+
     result
   }
 
