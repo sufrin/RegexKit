@@ -4,9 +4,33 @@ import  sufrin.regex.machine.Program._
 
 
 class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
-  val l, r = new FibreSet(program)
+  /**
+   * Current starting position of the subsequence being matched by `run`
+   *
+   * '''Inv''' `start <= startPos <= end`
+   */
+   var startPos = start
+
+  private val l, r = new FibreSet(program)
+
+  /**
+   *   Each `Fibre` represents a trace of an DFA recogniser for the expression from which
+   *   `program` was compiled.
+   *
+   *   The `current`` and `pending` `FibreSet`s each represent the state of an NDFA recogniser
+   *   that has consumed the sequence of input between `startPos` and `sourcePos`.
+   *
+   *   After each phase of a match, these `FibreSet`s are swapped.
+   */
   var (current, pending) = (l, r)
 
+  /**
+   *  The most recent successful result, if any, delivered by
+   *  a `Matched` instruction executed during a `run`.
+   *
+   *  The matching algorithm keeps going after a successful
+   *  match if there are ''prospects'' for a longer match.
+   */
   var lastResult: Option[(Int, Groups)] = None
 
   @inline def swapFibreSets(): Unit = { val t = current; current = pending; pending = t; pending.clear() }
@@ -45,45 +69,84 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       }
   }
 
-  def run(tracePos: Boolean = false): Option[(Int, Groups)] = {
-    var pos                           = start
+  def run(search: Boolean = true, tracePos: Boolean = false): Option[Match[T]] = {
+    /*
+     *  Invariant: sourcePos <= startPos <= end
+     */
+    var sourcePos                     = startPos
     var result: Option[(Int, Groups)] = None
 
-    @inline def computeClosure(in: T): Option[(Int, Groups)] = {
+    /** Set `current` to the next NDA state */
+    @inline def nextNDAState(in: T): Option[(Int, Groups)] = {
       var result: Option[(Int, Groups)] = None
       while (current.nonEmpty && result.isEmpty) {
-        //if (current.nonEmpty) println(s"Current: $current")
         val fibre = current.fetchFibre()
         val groups = fibre.groups
-        result = execute(pos, in, fibre.pc, groups)
+        result = execute(sourcePos, in, fibre.pc, groups)
+
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
         if (result.nonEmpty) lastResult = result
-        if (result.nonEmpty && pending.nonEmpty && pos<end)  result = None
+        if (result.nonEmpty && pending.nonEmpty && sourcePos<end)  result = None
       }
+      swapFibreSets()
       result
     }
 
-    current.addFibre(0, new Fibre(0, groups))
+    var searching = true
 
-    while (result.isEmpty && current.nonEmpty && pos<end) {
-      val in = input(pos)
-      if (tracePos) println(s"$in@$pos")
-      result = computeClosure(in)
-      //if (pending.nonEmpty) println(s"Pending: $pending")
-      pos += 1
-      swapFibreSets()
-    }
-    // Reached the end of the input, but there may still be some housekeeping
-    // action for groups, anchors etc.
-    if (tracePos) println("Cleanup:")
-    // Cleaning up may still yield a result, if there is an anchor
-    computeClosure(arbitraryInput) match {
-      case None    => result = lastResult
-      case success => result = success
+    while (searching) {
+
+      current.addFibre(0, new Fibre(0, groups))
+      sourcePos = startPos
+
+      while (result.isEmpty && current.nonEmpty && sourcePos < end) {
+        val in = input(sourcePos)
+        if (tracePos) println(s"$in@$sourcePos")
+        result = nextNDAState(in)
+        sourcePos += 1
+      }
+      // Reached the end of the input, but there may still be some housekeeping
+      // action for groups, anchors etc.
+      if (tracePos) println("Cleanup:")
+
+      // Cleaning up may still yield a result, if there is an anchor
+      nextNDAState(arbitraryInput) match {
+        case None    => result = lastResult
+        case success => result = success
+      }
+
+      // if searching and no result, then try the match from the next position
+      result match {
+        case None => if (search && startPos <= end) startPos += 1 else searching = false
+        case _    => searching = false
+      }
     }
 
-    result
+    result match {
+      case None => None
+      case Some((index, groups)) => Some(new Match(input, index, groups))
+     }
+  }
+
+  /** Wrapper for a successful match */
+  class Match[T](val input: IndexedSeq[T], val index: Int, val groups: Groups) {
+
+    /**
+     *   A view of the `i`'th group. At present this is implemented lazily,
+     *   so the group is not "reified" completely. Reification is forced by
+     *   (many of) the `to`''XXX'' methods: `toArray, toList, toSet, toSeq, toIndexedSeq`.
+     */
+    def group(i: Int): Seq[T] = {
+      groups(i) match {
+        case None          => input.slice(0,0)
+        case Some ((s, e)) => input.slice(s, e)
+      }
+    }
+
+    lazy val matched: Seq[T] = group(0)
+
+    override def toString: String = s"$matched[${matched.length}] $index $groups"
   }
 
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
