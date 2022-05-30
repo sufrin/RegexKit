@@ -15,6 +15,8 @@ trait Tree[T]  {
 
   def |(r: Tree[T]): Tree[T]    = Alt(this, r)
   def +(r: Tree[T]): Tree[T]    = Seq(List(this, r))
+  def ? : Tree[T]               = Opt[T](this)
+  def * : Tree[T]               = Star[T](this)
 
   def compile(showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
@@ -75,18 +77,13 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
  * the groups in each branch are addressed from 1.
  *
  * It cannot be nested within another Tree.
- *
+ * {{{
  * Save(0)
- * Jump(lFork)
+ * Fork(L0, L1, ..., Ln)
  *   L0: branches(0); Save(0); Matched(0)
  *   ...
  *   Ln: branches(n); Save(0); Matched(n)
- * lFork:
- *   Fork(l0)
- *   ...
- *   Fork(Ln-1)
- *   Jump(Ln)
- *
+ * }}}
  */
 
 case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T] {
@@ -122,13 +119,51 @@ case class Group[T](expr: Tree[T], capture: Boolean=true) extends Tree[T] {
     if (capture) {
       program += machine.Start(groups)
       val groups_ = expr.compile(groups + 1, program)
-          program += machine.End(groups)
-          groups_ + 1
+      program += machine.End(groups)
+      groups_
     } else
       expr.compile(groups, program)
   }
 
   def reversed: Tree[T] = Group(expr.reversed, capture)
+}
+
+case class Opt[T](expr: Tree[T], preferNone: Boolean=false) extends Tree[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    val next, over = machine.Lab[T](-1)
+    program += machine.Fork(List(next, over))
+    program.define(next)
+    val groups_ = expr.compile(groups, program)
+    program.define(over)
+    groups_
+  }
+
+  def reversed: Tree[T] = Opt(expr.reversed, preferNone)
+}
+
+/**
+ *  {{{
+ *    lStart:
+ *      Fork(next, lEnd)
+ *    next:
+ *      expr
+ *      Jump(lStart)
+ *    lEnd:
+ *  }}}
+ */
+case class Star[T](expr: Tree[T], preferNone: Boolean=false) extends Tree[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    val next, lStart, lEnd = machine.Lab[T](-1)
+    program.define(lStart)
+    program += machine.Fork(List(next, lEnd))
+    program.define(next)
+    val groups_ = expr.compile(groups, program)
+    program += machine.Jump(lStart)
+    program.define(lEnd)
+    groups_
+  }
+
+  def reversed: Tree[T] = Opt(expr.reversed, preferNone)
 }
 
 /** Matches at the start of the examined sequence */
