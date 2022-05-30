@@ -10,7 +10,7 @@ val showCode   = true
 val traceSteps = true
 val tracePos   = true
 
-def trial(label: String, search: Boolean = false)(pat: Tree[Char], subject: String = text): Unit =
+def trial(label: String, search: Boolean = false, subject: String = text)(pat: Tree[Char]): Unit =
   {
     val compiled = pat.compile(showCode)
     val state    = new State[Char](compiled, Groups.empty, subject, 0, subject.length, traceSteps)
@@ -49,6 +49,14 @@ trial("cd|cdefg$|abc-|abcde-", true)("cd".! | AnchorEnd("cdefg".!)  | "abc-".! |
 trial("cd|cdefg|abc-|abcde-", true)("cd".! | ("cdefg".!)  | "abc-".! | "abcde-".!)
 
 trial("||(abc,bcdef)", true)  (||("xbc"!, "foo"!, Group("def"!)+Group("g"!)))
+
+trial("abg?cd", true) ("ab".! + "g".!.? + "cd".!)
+
+trial("abg?cd", true, subject = "fooabggggggcde") ("ab".! + "g".!.* + "cd".!)
+
+
+
+
 
 
 
