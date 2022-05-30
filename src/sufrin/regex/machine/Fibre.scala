@@ -2,13 +2,13 @@ package sufrin.regex.machine
 import sufrin.regex.machine.Program.Program
 
 /**
- *  Represnts the state of a single thread of a running recogniser.
+ *  Represents the state of a single thread of a running recogniser.
  *  Two fibres running the same program are equal if they have the same `pc`.
  *
  *  We '''never''' compare Fibres from different programs.
  *
- *  The `groups` represent information accumulated so far by
- *  this running fibre.
+ *  The `groups` represent information accumulated since the
+ *  start of execution of the recogniser by this running fibre.
  */
 case class Fibre[T](pc: Int, groups: Groups) {
 

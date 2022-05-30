@@ -1,14 +1,16 @@
 import sufrin.regex.syntax._
+import Tree._
 import sufrin.regex.machine._
 
 val text = "abcdefg"
-def Str(s: String): Regex[Char] = Seq(s.map(Literal(_)))
+import language.postfixOps
 
-val showCode   = false
+
+val showCode   = true
 val traceSteps = true
 val tracePos   = true
 
-def trial(label: String, search: Boolean = false)(pat: Regex[Char], subject: String = text): Unit =
+def trial(label: String, search: Boolean = false)(pat: Tree[Char], subject: String = text): Unit =
   {
     val compiled = pat.compile(showCode)
     val state    = new State[Char](compiled, Groups.empty, subject, 0, subject.length, traceSteps)
@@ -20,28 +22,35 @@ def trial(label: String, search: Boolean = false)(pat: Regex[Char], subject: Str
 
 if (false) {
 println("abc")
-val p0 = Str("abc")
+val p0 = "abc"!
 val c0 = p0.compile()
 val s = new State[Char](c0, Groups.empty, text, 0, text.length, traceSteps)
 s.run(tracePos)
 }
 
-trial("abc|(abcdef)")(Alt(Str("abc"), Group(Str("abcdef"), true)))
+trial("abc|(abcdef)")(Alt("abc"!, Group("abcdef"!, true)))
 
-trial("abcdefx|(abcdef)")(Alt(AnchorStart(Str("abcdefx")), Group(Str("abcdef"), true)))
+trial("abcdefx|(abcdef)")(Alt(AnchorStart("abcdefx"!), Group("abcdef"!, true)))
 
-trial("abcdefx|(abcdefg)$")(Alt(AnchorStart(Str("abcdefx")), Group(AnchorEnd(Str("abcdefg")), true)))
+trial("abcdefx|(abcdefg)$")(Alt(AnchorStart("abcdefx"!), Group(AnchorEnd("abcdefg"!), true)))
 
-trial("abcde|a|ab|abc|abcd")(Str("abcde") | Str("a") | Str("ab")  | Str("abc") | Str("abcd"))
+trial("abcde|a|ab|abc|abcd")("abcde".! | "a".! | "ab".!  | "abc".! | "abcd".!)
 
-trial("abcde-|a|ab|abc|abcd")(Str("abcde-") | Str("a") | Str("ab")  | Str("abc") | Str("abcd"))
+trial("abcde-|a|ab|abc|abcd")("abcde-".! | "a".! | "ab".!  | "abc".! | "abcd".!)
 
-trial("a|ab|abc-|abcde-")(Str("a") | Str("ab")  | Str("abc-") | Str("abcde-"))
+trial("a|ab|abc-|abcde-")("a".! | "ab".!  | "abc-".! | "abcde-".!)
 
-trial("cd|cde|abc-|abcde-", true)(Str("cd") | Str("cde")  | Str("abc-") | Str("abcde-"))
+trial("cd|cde|abc-|abcde-", true)("cd".! | "cde".!  | "abc-".! | "abcde-".!)
 
-trial("cd|cde$|abc-|abcde-", true)(Str("cd") | AnchorEnd(Str("cde"))  | Str("abc-") | Str("abcde-"))
+trial("cd|cde$|abc-|abcde-", true)("cd".! | AnchorEnd("cde".!)  | "abc-".! | "abcde-".!)
 
-trial("cd|cdefg$|abc-|abcde-", true)(Str("cd") | AnchorEnd(Str("cdefg"))  | Str("abc-") | Str("abcde-"))
+trial("cd|cdefg$|abc-|abcde-", true)("cd".! | AnchorEnd("cdefg".!)  | "abc-".! | "abcde-".!)
 
-trial("cd|cdefg|abc-|abcde-", true)(Str("cd") | (Str("cdefg"))  | Str("abc-") | Str("abcde-"))
+trial("cd|cdefg|abc-|abcde-", true)("cd".! | ("cdefg".!)  | "abc-".! | "abcde-".!)
+
+trial("||(abc,bcdef)", true)  (||("xbc"!, "foo"!, Group("def"!)+Group("g"!)))
+
+
+
+
+

@@ -1,7 +1,6 @@
 package sufrin.regex.machine
+import  sufrin.regex.Match
 import  sufrin.regex.machine.Program._
-
-
 
 class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
   /**
@@ -36,9 +35,9 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
   @inline def swapFibreSets(): Unit = { val t = current; current = pending; pending = t; pending.clear() }
 
   /**
-   *  Instructions are treated homogeneously right now, and all receive the context for their
+   *  Instructions are treated homogeneously right now, and all receive the same context for their
    *  execution: `execute(start, end, sourcePos, in, pc, groups)`. This makes adding new kinds of instruction
-   *  very straightforward -- but at the cost of needing an arbitrary in value to supply
+   *  very straightforward -- but at the cost of needing an arbitrary input value to supply
    *  to the housekeeping instructions that are executed after the end of the input-proper
    *  has been reached.
    */
@@ -60,9 +59,8 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         case Schedule(apc, groups) =>
           current.addFibre(apc, { new Fibre[T](apc, groups) })
           None
-        case Schedule2(pc1, pc2, groups) =>
-          current.addFibre(pc1, { new Fibre[T](pc1, groups) })
-          current.addFibre(pc2, { new Fibre[T](pc2, groups) })
+        case ScheduleMany(pcs, groups) =>
+          for { pc <- pcs } current.addFibre(pc, { new Fibre[T](pc, groups) })
           None
         case Success(branch: Int, groups: Groups) =>
           Some(branch, groups)
@@ -106,11 +104,13 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         result = nextNDAState(in)
         sourcePos += 1
       }
-      // Reached the end of the input, but there may still be some housekeeping
-      // action for groups, anchors etc.
-      if (tracePos) println("Cleanup:")
+      // result.nonEmpty || current.isEmpty || sourcePos==end
 
-      // Cleaning up may still yield a result, if there is an anchor
+      if (traceSteps) println("Finally:")
+
+      /* If `current.nonEmpty` then the transition to an accepting (or failing) state
+       * still requires the execution of further ''housekeeping'' instructions
+       */
       nextNDAState(arbitraryInput) match {
         case None    => result = lastResult
         case success => result = success
@@ -129,25 +129,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
      }
   }
 
-  /** Wrapper for a successful match */
-  class Match[T](val input: IndexedSeq[T], val index: Int, val groups: Groups) {
 
-    /**
-     *   A view of the `i`'th group. At present this is implemented lazily,
-     *   so the group is not "reified" completely. Reification is forced by
-     *   (many of) the `to`''XXX'' methods: `toArray, toList, toSet, toSeq, toIndexedSeq`.
-     */
-    def group(i: Int): Seq[T] = {
-      groups(i) match {
-        case None          => input.slice(0,0)
-        case Some ((s, e)) => input.slice(s, e)
-      }
-    }
-
-    lazy val matched: Seq[T] = group(0)
-
-    override def toString: String = s"$matched[${matched.length}] $index $groups"
-  }
 
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
 }

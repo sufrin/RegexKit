@@ -5,7 +5,7 @@ sealed trait Result { }
 case object Stop                                            extends Result // kill the executing thread
 case class Next(groups: Groups)                             extends Result // accept the current value and continue the executing thread
 case class Schedule(pc: Int, groups: Groups)                extends Result // current closure computation
-case class Schedule2(pc1: Int, pc2: Int, groups: Groups)    extends Result // current closure computation
+case class ScheduleMany(pcs: Seq[Int], groups: Groups)      extends Result // current closure computation
 case class Success(branch: Int, groups: Groups)             extends Result // which branch of the top-level alt
 
 
@@ -67,10 +67,11 @@ case class Jump[T] (label: Lab[T])       extends Instruction[T]{
        Schedule(label.loc, groups)
 }
 
-case class Fork[T] (label: Lab[T])       extends Instruction[T]{
+case class Fork[T] (labels: Seq[Lab[T]])       extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
-       Schedule2(pc+1, label.loc, groups)
+    ScheduleMany(labels.map(_.loc), groups)
 }
+
 
 case class Matched[T](branch: Int)    extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
