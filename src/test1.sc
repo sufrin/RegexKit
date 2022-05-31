@@ -60,6 +60,10 @@ trial("Search", true, subject = "fooabggggggcde") ("ab".! + "g".!.* + "cd".!)
 trial("Search", true, subject = "fooabggggggcde") (Span("x".!.? | "a".!.?) + "b".! + "g".!.* + "cd".!)
 
 
+res15 match {
+  case Some(Match(ix, all, opta)) => (ix, opta, all)
+}
+
 
 
 

@@ -31,5 +31,5 @@ class Match[T](val input: IndexedSeq[T], val index: Int, val groups: Groups) {
 }
 
 object Match {
-  def unapplySeq[T](aMatch: Match[T]): Option[Seq[Seq[T]]] = Some(aMatch.allMatched)
+  def unapplySeq[T](aMatch: Match[T]): Option[(Int, Seq[Seq[T]])] = Some((aMatch.index, aMatch.allMatched))
 }

@@ -139,6 +139,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
      }
   }
 
+
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
 }
 
