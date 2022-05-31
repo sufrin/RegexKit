@@ -14,12 +14,14 @@ trait Tree[T]  {
   def reversed: Tree[T]
   def source: String = this.toString
 
-  def |(r: Tree[T]): Tree[T]    = Alt(this, r)
-  def +(r: Tree[T]): Tree[T]    = Seq(List(this, r))
-  def ? : Tree[T]               = Opt[T](this, nonGreedy = false)
-  def ?? : Tree[T]              = Opt[T](this, nonGreedy = true)
-  def * : Tree[T]               = Star[T](this, nonGreedy = false)
-  def *? : Tree[T]              = Star[T](this, nonGreedy = true)
+  def | (r: Tree[T]): Tree[T]   = Alt(this, r)
+  def ++(r: Tree[T]): Tree[T]   = Seq(List(this, r))
+  def +   :  Tree[T]            = Plus[T](this, nonGreedy = false)
+  def +?  : Tree[T]             = Plus[T](this, nonGreedy = true)
+  def ?   : Tree[T]             = Opt[T](this, nonGreedy = false)
+  def ??  : Tree[T]             = Opt[T](this, nonGreedy = true)
+  def *   : Tree[T]             = Star[T](this, nonGreedy = false)
+  def *?  : Tree[T]             = Star[T](this, nonGreedy = true)
 
   def compile(showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
@@ -48,7 +50,7 @@ case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
     groups
   }
   def reversed: Tree[T] = this
-  override def source: String = s"Sat($explain)"
+  override def source: String = s"$explain"
 }
 
 case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
@@ -59,7 +61,7 @@ case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
   }
   def reversed: Tree[T] = Seq(seq.reverse.map(_.reversed))
   override def source: String = seq.map(_.source).mkString("","","")
-  override def +(r: Tree[T]): Tree[T]    = Seq(seq appended r)
+  override def ++(r: Tree[T]): Tree[T] = Seq(seq appended r)
 
 }
 
@@ -206,9 +208,40 @@ case class Star[T](expr: Tree[T], nonGreedy: Boolean=false) extends Tree[T] {
     groups_
   }
 
-  def reversed: Tree[T] = Opt(expr.reversed, nonGreedy)
+  def reversed: Tree[T] = Star(expr.reversed, nonGreedy)
 
   override def source: String = s"${expr.source}*"+(if (nonGreedy) "?" else "")
+
+}
+
+/**
+ *
+ *  Represents: `expr*` and the non-greedy `expr*?`
+ *
+ *  {{{
+ *   lStart:
+ *      expr
+ *      Fork(lStart, next)
+ *    next:
+ *  }}}
+ *
+ *  When `nonGreedy` the fork spawns with the opposite priority
+ *
+ *  {{{ Fork(next, lStart) }}}
+ */
+case class Plus[T](expr: Tree[T], nonGreedy: Boolean=false) extends Tree[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    val next, lStart = machine.Lab[T](-1)
+    program.define(lStart)
+    val groups_ = expr.compile(groups, program)
+    program += machine.Fork(if (nonGreedy) List(next, lStart) else List(lStart, next))
+    program.define(next)
+    groups_
+  }
+
+  def reversed: Tree[T] = Plus(expr.reversed, nonGreedy)
+
+  override def source: String = s"${expr.source}+"+(if (nonGreedy) "?" else "")
 
 }
 
