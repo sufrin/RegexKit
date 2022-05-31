@@ -6,12 +6,6 @@ import  sufrin.regex.machine.Program._
 
 class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
   import State._
-  /**
-   * Current starting position of the subsequence being matched by `run`
-   *
-   * '''Inv''' `start <= startPos <= end`
-   */
-   var startPos = start
 
   private val l, r = new FibreSet(program)
 
@@ -96,7 +90,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     /*
      *  Invariant: sourcePos <= startPos <= end
      */
-    var sourcePos      = startPos
+    var sourcePos      = start
     var result: Result = None
 
     /** Set `current` to the next NDA state */
@@ -119,7 +113,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     }
 
     current.addFibre(0, new Fibre(0, groups))
-    sourcePos = startPos
+    sourcePos = start
 
     while (result.isEmpty && current.nonEmpty && sourcePos < end) {
       val in = input(sourcePos)

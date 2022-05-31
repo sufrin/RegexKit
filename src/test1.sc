@@ -1,6 +1,7 @@
 import sufrin.regex.syntax._
 import Tree._
 import sufrin.regex.machine._
+import sufrin.regex.Match
 
 val text = "abcdefg"
 import language.postfixOps
@@ -11,13 +12,13 @@ val traceSteps = false
 val tracePos   = false
 
 
-def trial(label: String, search: Boolean = false, subject: String = text)(pat: Tree[Char]): Unit =
+def trial(label: String, search: Boolean = false, subject: String = text)(pat: Tree[Char]): Option[Match[Char]] =
   {
     val compiled = pat.compile(showCode)
     val state    = new State[Char](compiled, Groups.empty, subject, 0, subject.length, traceSteps)
     val result   = state.run(search, tracePos)
     println(s"$label ${pat.source} @ $subject ==> $result")
-
+    result
   }
 
 if (false) {
