@@ -17,10 +17,19 @@ class Match[T](val input: IndexedSeq[T], val index: Int, val groups: Groups) {
     }
   }
 
+  /** The entire matched subsequence */
   lazy val matched: Seq[T] = group(0)
 
+  /** The start and end of the entire matched subsequence  */
+  lazy val (start, end) = groups(0).getOrElse((-1, -1))
+
+  /** The entire sequence of  matched subsequences -- including all subgroups  */
   lazy val allMatched: Seq[Seq[T]] =
     (for { (s, e) <- groups.spans } yield input.slice(s, e)).toList
 
   override def toString: String = s"[${matched.length}] $index $groups => [$allMatched]"
+}
+
+object Match {
+  def unapplySeq[T](aMatch: Match[T]): Option[Seq[Seq[T]]] = Some(aMatch.allMatched)
 }
