@@ -46,7 +46,7 @@ class FibreSet[T](program: Program[T]) {
   @inline def nonEmpty: Boolean = set.nonEmpty
 
   def clear(): Unit = {
-    for { i<-0 until program.length } { present(i) = false } // may be redundant: we only clear an empty queue
+    for { i<-0 until program.length } { present(i) = false }
     set.clear()
   }
 

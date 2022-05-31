@@ -6,17 +6,17 @@ val text = "abcdefg"
 import language.postfixOps
 
 
-val showCode   = true
-val traceSteps = true
-val tracePos   = true
+val showCode   = false
+val traceSteps = false
+val tracePos   = false
+
 
 def trial(label: String, search: Boolean = false, subject: String = text)(pat: Tree[Char]): Unit =
   {
     val compiled = pat.compile(showCode)
     val state    = new State[Char](compiled, Groups.empty, subject, 0, subject.length, traceSteps)
     val result   = state.run(search, tracePos)
-    println()
-    println(s"Trial: $label = $result")
+    println(s"$label ${pat.source} @ $subject ==> $result")
 
   }
 
@@ -28,31 +28,38 @@ val s = new State[Char](c0, Groups.empty, text, 0, text.length, traceSteps)
 s.run(tracePos)
 }
 
-trial("abc|(abcdef)")(Alt("abc"!, Group("abcdef"!, true)))
+trial("")(Alt("abc"!, Span("abcdef"!, true)))
 
-trial("abcdefx|(abcdef)")(Alt(AnchorStart("abcdefx"!), Group("abcdef"!, true)))
+trial("")(Alt(AnchorStart("abcdefx"!), Span("abcdef"!, true)))
 
-trial("abcdefx|(abcdefg)$")(Alt(AnchorStart("abcdefx"!), Group(AnchorEnd("abcdefg"!), true)))
+trial("")(Alt(AnchorStart("abcdefx"!), Span(AnchorEnd("abcdefg"!), true)))
 
-trial("abcde|a|ab|abc|abcd")("abcde".! | "a".! | "ab".!  | "abc".! | "abcd".!)
+trial("")("abcde".! | "a".! | "ab".!  | "abc".! | "abcd".!)
 
-trial("abcde-|a|ab|abc|abcd")("abcde-".! | "a".! | "ab".!  | "abc".! | "abcd".!)
+trial("")("abcde-".! | "a".! | "ab".!  | "abc".! | "abcd".!)
 
-trial("a|ab|abc-|abcde-")("a".! | "ab".!  | "abc-".! | "abcde-".!)
+trial("")("a".! | "ab".!  | "abc-".! | "abcde-".!)
 
-trial("cd|cde|abc-|abcde-", true)("cd".! | "cde".!  | "abc-".! | "abcde-".!)
+trial("Search", true)("cd".! | "cde".!  | "abc-".! | "abcde-".!)
 
-trial("cd|cde$|abc-|abcde-", true)("cd".! | AnchorEnd("cde".!)  | "abc-".! | "abcde-".!)
+trial("Search", true)("cd".! | AnchorEnd("cde".!)  | "abc-".! | "abcde-".!)
 
-trial("cd|cdefg$|abc-|abcde-", true)("cd".! | AnchorEnd("cdefg".!)  | "abc-".! | "abcde-".!)
+trial("Search", true)("cd".! | AnchorEnd("cdefg".!)  | "abc-".! | "abcde-".!)
 
-trial("cd|cdefg|abc-|abcde-", true)("cd".! | ("cdefg".!)  | "abc-".! | "abcde-".!)
+trial("Search", true)("cd".! | ("cdefg".!)  | "abc-".! | "abcde-".!)
 
-trial("||(abc,bcdef)", true)  (||("xbc"!, "foo"!, Group("def"!)+Group("g"!)))
+trial("Search", true)  (||("xbc"!, Span("bcd"!), Span("de".!) + Span("f".!) + ("g".!.?)))
 
-trial("abg?cd", true) ("ab".! + "g".!.? + "cd".!)
+trial("Search", true)  (||("xbc"!, Span("bcd"!), Span("de".!) + Span("f".!) + "x".!))
 
-trial("abg?cd", true, subject = "fooabggggggcde") ("ab".! + "g".!.* + "cd".!)
+trial("Search", true) ("ab".! + "g".!.? + "cd".!)
+
+trial("Search", true, subject = "fooabggggggcde") ("ab".! + "g".!.* + "cd".!)
+
+trial("Search", true, subject = "fooabggggggcde") (Span("x".!.? | "a".!.?) + "b".! + "g".!.* + "cd".!)
+
+
+
 
 
 

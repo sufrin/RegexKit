@@ -12,11 +12,14 @@ object Tree {
 trait Tree[T]  {
   def compile(groups: Int, program: Builder[T]): Int
   def reversed: Tree[T]
+  def source: String = this.toString
 
   def |(r: Tree[T]): Tree[T]    = Alt(this, r)
   def +(r: Tree[T]): Tree[T]    = Seq(List(this, r))
-  def ? : Tree[T]               = Opt[T](this)
-  def * : Tree[T]               = Star[T](this)
+  def ? : Tree[T]               = Opt[T](this, nonGreedy = false)
+  def ?? : Tree[T]              = Opt[T](this, nonGreedy = true)
+  def * : Tree[T]               = Star[T](this, nonGreedy = false)
+  def *? : Tree[T]              = Star[T](this, nonGreedy = true)
 
   def compile(showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
@@ -24,6 +27,7 @@ trait Tree[T]  {
     compile(1, builder)
     builder += machine.End(0)
     builder += machine.Matched(-1)
+    if (showCode) println(source)
     if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
     builder.toProgram
   }
@@ -35,14 +39,16 @@ case class Literal[T](v: T) extends Tree[T] {
     groups
   }
   def reversed: Tree[T] = this
+  override def source: String = v.toString
 }
 
-case class Sat[T](sat: T => Boolean) extends Tree[T] {
+case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     program += machine.Sat(sat)
     groups
   }
   def reversed: Tree[T] = this
+  override def source: String = s"Sat($explain)"
 }
 
 case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
@@ -52,6 +58,9 @@ case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
     g
   }
   def reversed: Tree[T] = Seq(seq.reverse.map(_.reversed))
+  override def source: String = seq.map(_.source).mkString("","","")
+  override def +(r: Tree[T]): Tree[T]    = Seq(seq appended r)
+
 }
 
 case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
@@ -68,6 +77,8 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
   }
 
   def reversed: Tree[T] = Alt(l.reversed, r.reversed)
+
+  override def source: String = s"${l.source} | ${r.source}"
 }
 
 /**
@@ -89,7 +100,7 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
 case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     val lStarts   = branches.map { (tree: Tree[T]) =>  machine.Lab[T](-1) }
-    var maxGroups = 0
+    var maxGroups = 1
     program  += machine.Start(0)
     program  += machine.Fork(lStarts)
 
@@ -110,38 +121,66 @@ case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T
     if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
     builder.toProgram
   }
+
+  override def source: String = branches.map(_.source).mkString("||(", ", ", ")")
+
 }
 
 
 
-case class Group[T](expr: Tree[T], capture: Boolean=true) extends Tree[T] {
+case class Span[T](expr: Tree[T], capture: Boolean=true) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     if (capture) {
       program += machine.Start(groups)
-      val groups_ = expr.compile(groups + 1, program)
-      program += machine.End(groups)
-      groups_
+
+      val groups_ = expr.compile(groups, program)
+          program += machine.End(groups)
+          groups_ + 1
+
     } else
       expr.compile(groups, program)
   }
 
-  def reversed: Tree[T] = Group(expr.reversed, capture)
-}
+  def reversed: Tree[T] = Span(expr.reversed, capture)
 
-case class Opt[T](expr: Tree[T], preferNone: Boolean=false) extends Tree[T] {
-  def compile(groups: Int, program: Builder[T]): Int = {
-    val next, over = machine.Lab[T](-1)
-    program += machine.Fork(List(next, over))
-    program.define(next)
-    val groups_ = expr.compile(groups, program)
-    program.define(over)
-    groups_
-  }
-
-  def reversed: Tree[T] = Opt(expr.reversed, preferNone)
+  override def source: String = s"(${expr.source})"
 }
 
 /**
+ *  Represents: `expr?`` and the non-greedy `expr??`
+ *
+ * {{{
+ *   Fork(next, lEnd)
+ *   next: expr
+ *   lEnd:
+ * }}}
+ *
+ *
+ *  When `nonGreedy` the fork spawns with the opposite priority
+ *
+ *  {{{ Fork(lEnd, next) }}}
+ *
+ */
+case class Opt[T](expr: Tree[T], nonGreedy: Boolean=false) extends Tree[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    val next, lEnd = machine.Lab[T](-1)
+    program += machine.Fork(if (nonGreedy) List(next, lEnd) else List(lEnd, next))
+    program.define(next)
+    val groups_ = expr.compile(groups, program)
+    program.define(lEnd)
+    groups_
+  }
+
+  def reversed: Tree[T] = Opt(expr.reversed, nonGreedy)
+
+  override def source: String = s"${expr.source}?"+(if (nonGreedy) "?" else "")
+
+}
+
+/**
+ *
+ *  Represents: `expr*` and the non-greedy `expr*?`
+ *
  *  {{{
  *    lStart:
  *      Fork(next, lEnd)
@@ -150,12 +189,16 @@ case class Opt[T](expr: Tree[T], preferNone: Boolean=false) extends Tree[T] {
  *      Jump(lStart)
  *    lEnd:
  *  }}}
+ *
+ *  When `nonGreedy` the fork spawns with the opposite priority
+ *
+ *  {{{ Fork(lEnd, next) }}}
  */
-case class Star[T](expr: Tree[T], preferNone: Boolean=false) extends Tree[T] {
+case class Star[T](expr: Tree[T], nonGreedy: Boolean=false) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     val next, lStart, lEnd = machine.Lab[T](-1)
     program.define(lStart)
-    program += machine.Fork(List(next, lEnd))
+    program += machine.Fork(if (nonGreedy) List(lEnd, next) else List(next, lEnd))
     program.define(next)
     val groups_ = expr.compile(groups, program)
     program += machine.Jump(lStart)
@@ -163,7 +206,10 @@ case class Star[T](expr: Tree[T], preferNone: Boolean=false) extends Tree[T] {
     groups_
   }
 
-  def reversed: Tree[T] = Opt(expr.reversed, preferNone)
+  def reversed: Tree[T] = Opt(expr.reversed, nonGreedy)
+
+  override def source: String = s"${expr.source}*"+(if (nonGreedy) "?" else "")
+
 }
 
 /** Matches at the start of the examined sequence */
@@ -173,6 +219,9 @@ case class AnchorStart[T](expr: Tree[T]) extends Tree[T] {
     expr.compile(groups, program)
   }
   def reversed: Tree[T] = AnchorEnd(expr.reversed)
+
+  override def source: String = s"^${expr.source}"
+
 }
 
 /** Matches at the start of the examined sequence */
@@ -183,5 +232,7 @@ case class AnchorEnd[T](expr: Tree[T]) extends Tree[T] {
     groups_
   }
   def reversed: Tree[T] = AnchorStart(expr.reversed)
+  override def source: String = s"${expr.source}$$"
+
 }
 

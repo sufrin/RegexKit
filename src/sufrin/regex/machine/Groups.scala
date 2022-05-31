@@ -2,11 +2,12 @@ package sufrin.regex.machine
 
 
 /**
- *   An applicative mapping from numbered groups to their start/end locations
+ *   An applicative mapping from numbered captured groups to their start/end locations
  *
  *   '''Represents:''' the two finite mappings
  *
- *      `starts, ends: Int+>Int`
+ *      `starts, ends: Int ++> Int`
+ *
  */
 trait Groups {
   /** '''Returns:''' `g` such that `g.start = this.start + { group -> loc }` */
@@ -23,9 +24,15 @@ trait Groups {
 
   /** '''Returns:''' `Some(starts(group), ends(group))` iff group is defined at `starts` and at `ends` */
   def apply(group: Int): Option[(Int, Int)]
+
+  def size: Int
+
+  def spans: Iterable[(Int, Int)] =
+    for { i <- 0 until size; span <- apply(i)} yield span
+
 }
 
-/** A `Groups` representation using a single list-based mapping: `index: Int+>Int`
+/** A `Groups` representation using a single list-based mapping: `index: Int ++> Int`
  *
  *  '''Abstraction invariant:'''
  *     `starts` is `index` domain-restricted to even elements of its domain
@@ -57,12 +64,14 @@ class ListGroups(index: collection.immutable.ListMap[Int,Int]) extends Groups {
     }
   }
 
+  def size: Int = index.size/2
+
   /** Human-readable representation of the entire mapping, with '?'
    *  for unset indices.
    */
   override def toString: String = {
     val res = new StringBuilder()
-    for { i <- 0 until index.size/2 }
+    for { i <- 0 until size }
       { val s = startOrElse(i, "?")
         val e = endOrElse(i, "?")
         res.addAll(s"$i:($s,$e) ")

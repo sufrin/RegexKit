@@ -2,7 +2,10 @@ package sufrin.regex.machine
 import  sufrin.regex.Match
 import  sufrin.regex.machine.Program._
 
+
+
 class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
+  import State._
   /**
    * Current starting position of the subsequence being matched by `run`
    *
@@ -19,42 +22,64 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *   The `current`` and `pending` `FibreSet`s each represent the state of an NDFA recogniser
    *   that has consumed the sequence of input between `startPos` and `sourcePos`.
    *
-   *   After each phase of a match, these `FibreSet`s are swapped.
+   *   Each input is consumed by a major step in the algorithm, which is in two phases:
+   *
+   *      1. a ''housekeeping'' phase in which all instructions except for
+   *      the matching instructions are executed.
+   *
+   *      2. a substantive step, in which
+   *
    */
-  var (current, pending) = (l, r)
+  private var (current, pending) = (l, r)
+  /**
+   *  Continue with the next phase.
+   *
+   * '''Pre:''' `current.isEmpty`
+   *
+   * '''Post:''' `pending.isEmpty`
+   */
+  @inline def continue(): Unit = { val t = current; current = pending; pending = t /*; pending.clear()*/ }
 
   /**
    *  The most recent successful result, if any, delivered by
    *  a `Matched` instruction executed during a `run`.
    *
    *  The matching algorithm keeps going after a successful
-   *  match if there are ''prospects'' for a longer match.
+   *  match if there are prospects for a longer match.
    */
-  var lastResult: Option[(Int, Groups)] = None
+  private var lastResult: Result= None
 
-  @inline def swapFibreSets(): Unit = { val t = current; current = pending; pending = t; pending.clear() }
 
   /**
-   *  Instructions are treated homogeneously right now, and all receive the same context for their
-   *  execution: `execute(start, end, sourcePos, in, pc, groups)`. This makes adding new kinds of instruction
-   *  very straightforward -- but at the cost of needing an arbitrary input value to supply
-   *  to the housekeeping instructions that are executed after the end of the input-proper
-   *  has been reached.
+   *  Instructions are treated homogeneously. All receive the same context for their
+   *  execution: `program(pc).oneProgramStep(start, end, sourcePos, in, pc, groups)`.
+   *
+   *  This makes adding new kinds of instruction very straightforward -- but at the cost of
+   *  needing an arbitrary input value to supply to the housekeeping instructions executed
+   *  after the end of the input-proper has been reached.
    */
   private var arbitraryInput: T = _
 
-  /** Returns `None` if the executed instruction wasn't the `Success` at the end of the program;
-   * otherwise returns the index of the top-level branch that
-   * succeeded, and the spans that captured starting and ending positions of
+  /**
+   *  A program step returns `None` if the executed instruction wasn't a `Matched` instruction
+   *  that terminated the program with a continuation of `Success`; otherwise it transforms the
+   *  `Success` into a (successful) `Result`.
+   *
+   *  In the first case it has scheduled any threads necessary to continuing the match
+   *  or search.
    */
-  def execute(sourcePos: Int, in: T, pc: Int, groups: Groups): Option[(Int, Groups)] = {
-    val result = program(pc).execute(start, end, sourcePos, in, pc, groups)
-    if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $result")
-    result match {
+  def oneProgramStep(searching: Boolean, sourcePos: Int, in: T, pc: Int, groups: Groups): Result= {
+    val continuation = program(pc).execute(start, end, sourcePos, in, pc, groups)
+    if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $continuation")
+    continuation match {
         case Stop =>
+          if (searching) // spawn a virgin fibre (thanks to JMS for this tip)
+            pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Next(groups) =>
           pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })
+          if (searching) // spawn a virgin fibre (thanks to JMS for this tip)
+             pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Schedule(apc, groups) =>
           current.addFibre(apc, { new Fibre[T](apc, groups) })
@@ -71,56 +96,47 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     /*
      *  Invariant: sourcePos <= startPos <= end
      */
-    var sourcePos                     = startPos
-    var result: Option[(Int, Groups)] = None
+    var sourcePos      = startPos
+    var result: Result = None
 
     /** Set `current` to the next NDA state */
-    @inline def nextNDAState(in: T): Option[(Int, Groups)] = {
-      var result: Option[(Int, Groups)] = None
+    @inline def nextNDAState(in: T): Result= {
+      var result: Result = None
+
       while (current.nonEmpty && result.isEmpty) {
         val fibre = current.fetchFibre()
         val groups = fibre.groups
-        result = execute(sourcePos, in, fibre.pc, groups)
+        result = oneProgramStep(search, sourcePos, in, fibre.pc, groups)
 
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
         if (result.nonEmpty) lastResult = result
         if (result.nonEmpty && pending.nonEmpty && sourcePos<end)  result = None
       }
-      swapFibreSets()
+      // current.isEmpty || result.nonEmpty
+      continue()
       result
     }
 
-    var searching = true
+    current.addFibre(0, new Fibre(0, groups))
+    sourcePos = startPos
 
-    while (searching) {
+    while (result.isEmpty && current.nonEmpty && sourcePos < end) {
+      val in = input(sourcePos)
+      if (tracePos) println(s"$in@$sourcePos")
+      result = nextNDAState(in)
+      sourcePos += 1
+    }
+    // result.nonEmpty || current.isEmpty || sourcePos==end
 
-      current.addFibre(0, new Fibre(0, groups))
-      sourcePos = startPos
+    if (traceSteps) println("Finally:")
 
-      while (result.isEmpty && current.nonEmpty && sourcePos < end) {
-        val in = input(sourcePos)
-        if (tracePos) println(s"$in@$sourcePos")
-        result = nextNDAState(in)
-        sourcePos += 1
-      }
-      // result.nonEmpty || current.isEmpty || sourcePos==end
-
-      if (traceSteps) println("Finally:")
-
-      /* If `current.nonEmpty` then the transition to an accepting (or failing) state
-       * still requires the execution of further ''housekeeping'' instructions
-       */
-      nextNDAState(arbitraryInput) match {
-        case None    => result = lastResult
-        case success => result = success
-      }
-
-      // if searching and no result, then try the match from the next position
-      result match {
-        case None => if (search && startPos <= end) startPos += 1 else searching = false
-        case _    => searching = false
-      }
+    /* If `current.nonEmpty` then the transition to an accepting (or failing) state
+     * still requires the execution of further ''housekeeping'' instructions
+     */
+    nextNDAState(arbitraryInput) match {
+      case None    => result = lastResult
+      case success => result = success
     }
 
     result match {
@@ -129,7 +145,19 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
      }
   }
 
-
-
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
+}
+
+object State {
+  /**
+   * When successful, a `run` yields a result consisting of a
+   *  branch-number (if the compiled program was a top-level
+   *  `Branch`), together with the mapping from span indexes to
+   *  the spans of the subpatterns that have been matched.
+   */
+  type Result = Option[(Int, Groups)]
+
+  def apply[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, traceSteps: Boolean=false): State[T] =
+      new State[T](program, groups, input, start, end, traceSteps)
+
 }

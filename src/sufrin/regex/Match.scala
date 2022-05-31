@@ -19,5 +19,8 @@ class Match[T](val input: IndexedSeq[T], val index: Int, val groups: Groups) {
 
   lazy val matched: Seq[T] = group(0)
 
-  override def toString: String = s"$matched[${matched.length}] $index $groups"
+  lazy val allMatched: Seq[Seq[T]] =
+    (for { (s, e) <- groups.spans } yield input.slice(s, e)).toList
+
+  override def toString: String = s"[${matched.length}] $index $groups => [$allMatched]"
 }
