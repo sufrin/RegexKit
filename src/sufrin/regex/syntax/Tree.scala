@@ -46,7 +46,7 @@ case class Literal[T](v: T) extends Tree[T] {
 
 case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
-    program += machine.Sat(sat)
+    program += machine.Sat(sat, explain)
     groups
   }
   def reversed: Tree[T] = this

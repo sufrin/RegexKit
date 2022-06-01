@@ -32,9 +32,10 @@ case class Lit[T](value: T)           extends Instruction[T] {
       if (in==value) Next(groups) else Stop
 }
 
-case class Sat[T](sat: T => Boolean)  extends Instruction[T]{
+case class Sat[T](sat: T => Boolean, explain: String)  extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
       if (sat(in)) Next(groups) else Stop
+  override def toString: String = explain
 }
 
 case object AtStart   extends Instruction[Any]{
