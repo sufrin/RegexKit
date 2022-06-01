@@ -66,11 +66,13 @@ case class End[T]  (group: Int)       extends Instruction[T]{
 case class Jump[T] (label: Lab[T])       extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
        Schedule(label.loc, groups)
+  override def toString: String = s"-> ${label.loc}"
 }
 
 case class Fork[T] (labels: Seq[Lab[T]])       extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
     ScheduleMany(labels.map(_.loc), groups)
+  override def toString: String = labels.map(_.loc).mkString(" =>"," =>", "")
 }
 
 

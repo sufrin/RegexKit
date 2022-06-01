@@ -1,11 +1,10 @@
-import sufrin.regex.syntax
-import sufrin.regex.syntax._
 import sufrin.regex.machine._
-import sufrin.regex.{Match, machine}
-import Tree._
+import sufrin.regex.{Match, syntax}
+import sufrin.regex.syntax.Tree._
+import sufrin.regex.syntax._
 
 val text = "abcd efg abcdefg"
-import language.postfixOps
+import scala.language.postfixOps
 val word = syntax.Sat((c: Char) => ('a'<=c) && ('z'>=c) , "\\w")
 val unWord = syntax.Sat((c: Char) => ! ('a'<=c) || ! ('z'>=c) , "\\W")
 
@@ -20,7 +19,7 @@ def trial(label: String, search: Boolean = false, subject: String = text)(pat: T
     val state    = new State[Char](compiled, Groups.empty, subject, 0, subject.length, traceSteps)
     val result   = state.run(search, tracePos)
     for { r <- result }
-      println(s"$label ${pat.source} @ $subject ==> $r")
+      println(s"$label (${if (search) "Search" else "Match"}) ${pat.source} @ $subject ==> $r")
   }
 
 if (false) {
@@ -31,18 +30,23 @@ val s = new State[Char](c0, Groups.empty, text, 0, text.length, traceSteps)
 s.run(tracePos)
 }
 
-trial("")(Alt("abc"!, Span("abcdef"!, true)))
+trial("")(Alt("abc"!, Span("abcdef"!)))
 
-trial(label="Multi", true)(word ++ unWord)
+trial("", true)(Alt("abc"!, Span("abcdef"!)))
 
-trial(label="Multi", true)(unWord ++ word)
+trial("", true)(word ++ unWord)
 
-trial(label="Multi", true)(word.+ ++ unWord)
-trial(label="Multi", false)(word.+ ++ unWord)
-trial(label="Multi", true)("c".! ++ word.+ ++ unWord)
-trial(label="Multi", true)("c".! ++ word.+ ++ unWord)
+trial("", true)(unWord ++ word)
 
-trial(label="Multi", true)("ab".! | "abc".! | "ef".!)
+trial("", true)(word.+ ++ unWord)
+
+trial("", false)(word.+ ++ unWord)
+
+trial("", true)("c".! ++ word.+ ++ unWord)
+
+trial("", true)("c".! ++ word.+ ++ unWord)
+
+trial("", true)("ab".! | "abc".! | "ef".!)
 
 trial("")(Alt(AnchorStart("abcdefx"!), Span("abcdef"!, true)))
 

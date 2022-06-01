@@ -61,18 +61,25 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *
    *  In the first case it has scheduled any threads necessary to continuing the match
    *  or search.
+   *
+   *  '''NB:''' I gratefully acknowledge my colleague Mike Spivey's observation (based on
+   *  the 1965 Thompson paper) that an appropriate technique for /searching/ rather than
+   *  /matching/ is to spawn another thread at the origin of the program whenever the machine
+   *  is about to shift to consideration of the next character. I had previously performed a
+   *  match from successive starting locations.
    */
   def oneProgramStep(searching: Boolean, sourcePos: Int, in: T, pc: Int, groups: Groups): Result= {
     val continuation = program(pc).execute(start, end, sourcePos, in, pc, groups)
     if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $continuation")
     continuation match {
         case Stop =>
-          if (searching) // spawn a virgin fibre (thanks to JMS for this tip)
+          // spawn a virgin fibre (see NB above)
+          if (searching)
             pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Next(groups) =>
           pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })
-          if (searching) // spawn a virgin fibre (thanks to JMS for this tip)
+          if (searching) // spawn a virgin fibre (see NB above)
              pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Schedule(apc, groups) =>
@@ -102,10 +109,10 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         val groups = fibre.groups
         result = oneProgramStep(search, sourcePos, in, fibre.pc, groups)
 
+        if (result.nonEmpty) lastResult = result
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
-        if (result.nonEmpty) lastResult = result
-        if (result.nonEmpty && pending.nonEmpty && sourcePos<end)  result = None
+        if (result.nonEmpty && pending.nonEmpty && sourcePos<end && !search)  result = None
       }
       // current.isEmpty || result.nonEmpty
       continue()
@@ -138,7 +145,6 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       case Some((index, groups)) => Some(new Match(input, index, groups))
      }
   }
-
 
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
 }
