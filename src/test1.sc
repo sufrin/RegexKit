@@ -9,9 +9,9 @@ import language.postfixOps
 val word = syntax.Sat((c: Char) => ('a'<=c) && ('z'>=c) , "\\w")
 val unWord = syntax.Sat((c: Char) => ! ('a'<=c) || ! ('z'>=c) , "\\W")
 
-val showCode   = false
-val traceSteps = false
-val tracePos   = false
+val showCode   = true
+val traceSteps = true
+val tracePos   = true
 var last: Option[Match[Char]] = null
 
 def trial(label: String, search: Boolean = false, subject: String = text)(pat: Tree[Char]): Unit =
@@ -38,6 +38,9 @@ trial(label="Multi", true)(word ++ unWord)
 trial(label="Multi", true)(unWord ++ word)
 
 trial(label="Multi", true)(word.+ ++ unWord)
+trial(label="Multi", false)(word.+ ++ unWord)
+trial(label="Multi", true)("c".! ++ word.+ ++ unWord)
+trial(label="Multi", true)("c".! ++ word.+ ++ unWord)
 
 trial(label="Multi", true)("ab".! | "abc".! | "ef".!)
 
