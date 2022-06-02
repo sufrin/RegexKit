@@ -128,8 +128,6 @@ case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T
 
 }
 
-
-
 case class Span[T](expr: Tree[T], capture: Boolean=true) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     if (capture) {
@@ -149,11 +147,11 @@ case class Span[T](expr: Tree[T], capture: Boolean=true) extends Tree[T] {
 }
 
 /**
- *  Represents: `expr?`` and the non-greedy `expr??`
+ *  Represents: `parseExpr?`` and the non-greedy `parseExpr??`
  *
  * {{{
  *   Fork(next, lEnd)
- *   next: expr
+ *   next: parseExpr
  *   lEnd:
  * }}}
  *
@@ -181,13 +179,13 @@ case class Opt[T](expr: Tree[T], nonGreedy: Boolean=false) extends Tree[T] {
 
 /**
  *
- *  Represents: `expr*` and the non-greedy `expr*?`
+ *  Represents: `parseExpr*` and the non-greedy `parseExpr*?`
  *
  *  {{{
  *    lStart:
  *      Fork(next, lEnd)
  *    next:
- *      expr
+ *      parseExpr
  *      Jump(lStart)
  *    lEnd:
  *  }}}
@@ -216,11 +214,11 @@ case class Star[T](expr: Tree[T], nonGreedy: Boolean=false) extends Tree[T] {
 
 /**
  *
- *  Represents: `expr*` and the non-greedy `expr*?`
+ *  Represents: `parseExpr*` and the non-greedy `parseExpr*?`
  *
  *  {{{
  *   lStart:
- *      expr
+ *      parseExpr
  *      Fork(lStart, next)
  *    next:
  *  }}}

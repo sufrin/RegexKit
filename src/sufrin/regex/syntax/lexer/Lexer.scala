@@ -54,11 +54,23 @@ object Predef {
     'w' -> new PredefCharClass(_.isLetterOrDigit, "\\w"),
     'W' -> new PredefCharClass(not(_.isLetterOrDigit), "\\W"),
     's' -> new PredefCharClass(_.isSpaceChar, "\\s"),
-    'S' -> new PredefCharClass(not(_.isSpaceChar), "\\s")
+    'S' -> new PredefCharClass(not(_.isSpaceChar), "\\s"),
+    'n' -> Lit('\n'),     // newline
+    't' -> Lit('\t'),     // tab
+    'r' -> Lit('\r'),     // cr
+    'a' -> Lit('\u0007'), // bel
+    'f' -> Lit('\u000C'), // ff
+    'e' -> Lit('\u001B')  // esc
   )
   // locally { println(table) }
   def apply(ch: Char, orElse: => Lexeme): Lexeme =
       table.getOrElse(ch, orElse)
+
+  def escape(ch: Char): Char =
+    table.get(ch) match {
+      case Some(Lit(char)) => char
+      case _               => ch
+    }
 }
 
 
@@ -81,6 +93,8 @@ class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
 
     def next: Lexeme =
       chars match {
+        // lexemes can be widely spaced, for clarity
+        case ' ' :: rest => chars = rest; next
         case '(' :: _ => result(Bra)
         case ')' :: _ => result(Ket)
         case '|' :: _ => result(Bar)
@@ -93,12 +107,7 @@ class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
         case '*' :: _ => result(Star(false))
         case '+' :: _ => result(Plus(false))
         case '?' :: _ => result(Opt(false))
-        case '\\' :: 'n'  :: rest => result(Lit('\n'), rest)
-        case '\\' :: 't'  :: rest => result(Lit('\t'), rest)
-        case '\\' :: 'r'  :: rest => result(Lit('\r'), rest)     // cr
-        case '\\' :: 'a'  :: rest => result(Lit('\u0007'), rest) // bel
-        case '\\' :: 'f'  :: rest => result(Lit('\u000C'), rest) // ff
-        case '\\' :: 'e'  :: rest => result(Lit('\u001B'), rest) // esc
+        case '\\' :: 's'  :: rest => result(Lit(' '), rest)
         case '\\' :: '\\' :: rest => result(Lit('\\'), rest)
         case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) => result(Lit(hexer(a,b,c,d).toChar), rest)
         case '\\' :: 'u'  :: rest => SyntaxError(s"Invalid unicode escape at ${position(rest)} of $text")(Lit('\u0000'))
@@ -136,7 +145,18 @@ class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
           val (lexeme, rest_) = charClass(rest)
           (lexeme.not, rest_)
 
-        case '\\' :: char :: rest  => (CharClass(_==char, s"$char"), rest)
+        case '\\' :: '\\' :: rest =>
+          (CharClass(_=='\\', "\\\\"), rest)
+
+          // allow unicode escapes in character classes
+        case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) =>
+          val ch = hexer(a,b,c,d).toChar
+          (CharClass(_==ch, s"$ch"), rest)
+
+        // allow escapes in character classes
+        case '\\' :: char :: rest  =>
+          val ch = Predef.escape(char)
+          (CharClass(_==ch, s"\\$char"), rest)
 
         case l :: '-' :: r :: rest => (new CharRange(l, r), rest)
 
