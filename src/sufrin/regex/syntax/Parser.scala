@@ -21,28 +21,42 @@ class Parser (val text: String, val tracing: Boolean = false)  {
 
   private def parseSeq(): Tree[Char] = {
     var rd  = true
-    val seq = new collection.mutable.ListBuffer[Tree[Char]]
-    def reduce() = {
-      val e = if (seq.size==1) seq(0) else Seq(seq.toList)
+    // Sequence of primitives, accumulating in reverse order
+    // It would be natural to use a mutable stack here;
+    // but the stock Scala stack behaves oddly
+    var seq = List[Tree[Char]]()
+    @inline def pop(): Tree[Char]         = seq match { case h::t => seq = t; h}
+    @inline def push(t: Tree[Char]): Unit = seq = t :: seq
+    @inline def mkSeq() = {
+      val e = seq match {
+        case List(e) => e
+        case _       => Seq(seq.reverse)
+      }
       if (tracing) println(s"=> ${e.source}")
       e
     }
+
     while (rd) {
       lexeme match {
-        case Opt(_) | Plus(_) | Star(_) |
-             End    | Bar     | Ket  => rd = false
-        case Lit(char)               => seq += Literal(char)
-        case CharClass(sat, explain) => seq += Sat(sat, explain)
+        case End | Bar | Ket         =>  rd = false
+
+        case Opt (nonGreedy)         =>  push (sufrin.regex.syntax.Opt (pop(), nonGreedy))
+        case Plus(nonGreedy)         =>  push (sufrin.regex.syntax.Plus(pop(), nonGreedy))
+        case Star(nonGreedy)         =>  push (sufrin.regex.syntax.Star(pop(), nonGreedy))
+
+        case Lit(char)               => push (Literal(char))
+        case CharClass(sat, explain) => push (Sat(sat, explain))
+
         case Bra =>
           val e = parseExpr()
-          if (lexeme == Ket) nextLexeme() else SyntaxError(s"(...) malformed at $lexeme")(Literal('?'))
-          seq += Span(e, true)
+          if (lexeme != Ket) SyntaxError(s"(...) malformed at $lexeme")(Literal('?'))
+          push (Span(e, true))
       }
       if (rd) nextLexeme()
     }
-    // the result may not need to be `Seq`ified
-    reduce()
+    mkSeq()
   }
+
 
   private def parseExpr(): Tree[Char] =
     { nextLexeme()
@@ -50,10 +64,7 @@ class Parser (val text: String, val tracing: Boolean = false)  {
       var rd = true
       while (rd) {
             lexeme match {
-              case Opt (nonGreedy) => e = sufrin.regex.syntax.Opt (e, nonGreedy); nextLexeme()
-              case Plus(nonGreedy) => e = sufrin.regex.syntax.Plus(e, nonGreedy); nextLexeme()
-              case Star(nonGreedy) => e = sufrin.regex.syntax.Star(e, nonGreedy); nextLexeme()
-              case Bar =>
+               case Bar =>
                   nextLexeme()
                   e = Alt(e, parseSeq())
                case _ =>

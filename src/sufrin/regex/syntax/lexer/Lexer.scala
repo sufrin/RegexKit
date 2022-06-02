@@ -91,10 +91,10 @@ class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
 
     def position(rest: List[Char]): Int = text.length - rest.length
 
-    def next: Lexeme =
+    def next(): Lexeme =
       chars match {
         // lexemes can be widely spaced, for clarity
-        case ' ' :: rest => chars = rest; next
+        case ' ' :: rest => chars = rest; next()
         case '(' :: _ => result(Bra)
         case ')' :: _ => result(Ket)
         case '|' :: _ => result(Bar)
