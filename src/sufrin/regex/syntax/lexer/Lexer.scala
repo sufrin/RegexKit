@@ -23,11 +23,11 @@ case class  Lit(char: Char) extends Lexeme
 
 case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
 
-  def not: CharClass = CharClass(Predef.not(sat), s"[^$explain")
+  def not: CharClass = CharClass(Predef.not(sat), s"^$explain")
 
-  def &&(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) && that.sat(ch), s"$explain&&${that.explain}")
+  def &&(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) && that.sat(ch), s"$explain&&[${that.explain}]")
 
-  def ||(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) || that.sat(ch), s"$explain${that.explain}")
+  def ||(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) || that.sat(ch), s"$explain||${that.explain}")
 
   override def toString: String = s"[$explain]"
 }
@@ -73,23 +73,27 @@ object Predef {
     }
 }
 
+object Nonce extends Lit('\u0000')
 
-class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
+class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[Lexeme] {
 
   def iterator: Iterator[Lexeme] = new Iterator[Lexeme] {
     private var chars = text.toString.toList
 
     def hasNext: Boolean = chars.nonEmpty
 
-    def result(result: Lexeme, rest: List[Char]): Lexeme = {
+    def result[T](result: T, rest: List[Char]): T = {
       chars = rest; result
     }
 
-    def result(result: Lexeme): Lexeme = {
+    def result[T](result: T): T = {
       chars = chars.tail; result
     }
 
-    def position(rest: List[Char]): Int = text.length - rest.length
+    def shift(rest: List[Char]): Unit = chars = rest
+
+
+    def position: String = s"#${text.length - chars.length} of $text"
 
     def next(): Lexeme =
       chars match {
@@ -110,14 +114,22 @@ class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
         case '\\' :: 's'  :: rest => result(Lit(' '), rest)
         case '\\' :: '\\' :: rest => result(Lit('\\'), rest)
         case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) => result(Lit(hexer(a,b,c,d).toChar), rest)
-        case '\\' :: 'u'  :: rest => SyntaxError(s"Invalid unicode escape at ${position(rest)} of $text")(Lit('\u0000'))
+        case '\\' :: 'u'  :: rest => SyntaxError(s"Invalid unicode escape at $position")(Nonce)
         case '\\' :: ch   :: rest => result(Predef(ch, { Lit(ch) }), rest)
-        case '[' :: _ =>
-          val (lexeme, rest_) = charClass(chars)
-              result(lexeme, rest_)
+        case '['  :: rest =>
+             val pos = position
+             shift(rest)
+             val next = charClass()
+             chars match {
+               case ']' :: rest => shift(rest); next
+               case _           => SyntaxError(s"Unterminated character class starts at $pos")(next)
+             }
 
-        case other :: _ => result(Lit(other))
-        case _ => End
+        case ']' :: _   =>  SyntaxError(s"Stray unquoted ']' at $position")(Nonce)
+
+        case other :: _ =>  result(Lit(other))
+
+        case _          => End
       }
 
     def hexable(hexChars: Char*): Boolean =
@@ -139,66 +151,92 @@ class Lexer(val text: CharSequence) extends Iterable[Lexeme] {
       }
     }
 
-    def primClass(chars: List[Char]): (CharClass, List[Char]) =
+    def primClass(): CharClass = {
+      if (tracing) println(s"primClass @${chars.mkString("")}")
+      val startPos = position
       chars match {
+        // negated character within a class
         case '^' :: rest =>
-          val (lexeme, rest_) = charClass(rest)
-          (lexeme.not, rest_)
+          shift(rest)
+          primClass().not
 
         case '\\' :: '\\' :: rest =>
-          (CharClass(_=='\\', "\\\\"), rest)
+          result(CharClass(_ == '\\', "\\\\"), rest)
 
-          // allow unicode escapes in character classes
-        case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) =>
-          val ch = hexer(a,b,c,d).toChar
-          (CharClass(_==ch, s"$ch"), rest)
+        // allow unicode escapes in character classes
+        case '\\' :: 'u' :: a :: b :: c :: d :: rest if hexable(a, b, c, d) =>
+          val ch = hexer(a, b, c, d).toChar
+          result(CharClass(_ == ch, s"$ch"), rest)
 
         // allow escapes in character classes
-        case '\\' :: char :: rest  =>
+        case '\\' :: char :: rest =>
           val ch = Predef.escape(char)
-          (CharClass(_==ch, s"\\$char"), rest)
+          result(CharClass(_ == ch, s"\\$char"), rest)
 
-        case l :: '-' :: r :: rest => (new CharRange(l, r), rest)
-
-        case '[' :: rest_ =>
-          val (nextLex, rest__) = charClass(rest_)
-          rest__ match {
-            case ']':: rest___ => (nextLex, rest___)
-            case ch :: next    => SyntaxError(s"Bad character class at ${position(rest__)}")(ZeroClass, rest__)
-            case _             => (nextLex, rest__)
+        // negate the entire class that follows
+        case '[' :: '^' :: rest =>
+          val pos = position
+          shift(rest)
+          val next = charClass().not
+          chars match {
+            case ']' :: rest =>
+              shift(rest)
+              next
+            case _ =>
+              SyntaxError(s"Unterminated character class starts at $position")(ZeroClass)
           }
 
-        case '&' :: '&' :: '[' :: _    => (UnitClass, chars)
-        case ']' :: rest               => (UnitClass, rest)
-        case char :: rest              => (CharClass(_==char, s"$char"), rest)
-        case List()                    => (ZeroClass, chars)
+        case '[' :: rest =>
+          val pos = position
+          shift(rest)
+          val next = charClass()
+          chars match {
+            case ']' :: rest =>
+              shift(rest)
+              next
+            case _ =>
+              SyntaxError(s"Unterminated character class starts at ${pos}")(ZeroClass)
+          }
+
+        case l :: '-' :: r :: rest =>
+          result(new CharRange(l, r), rest)
+
+        case char :: rest if "]&" contains char => // TODO: discriminate between strict and lenient class syntax
+          SyntaxError(s"Improper character spec (stray unquoted '$char') at $position")(ZeroClass)
+
+        case char :: rest  =>
+          result(CharClass(_ == char, s"$char"), rest)
+
+        case _ =>  SyntaxError(s"Unterminated character spec at $position")(ZeroClass)
       }
 
-    def charClass(chars: List[Char]): (CharClass, List[Char]) = {
-      //println(s"charClass(${chars.mkString("")})")
-      val initial = primClass(chars)
-      var current: CharClass = initial._1
-      var rest: List[Char]   = initial._2
+    }
 
-        while (rest.nonEmpty) {
-        //println(current, rest)
-        rest match  {
-          case '&' :: '&' :: '[' :: rest__ =>
-            val (nextLex, rest_) = charClass(rest__)
-                current = current && nextLex
-                rest    = rest_
-          case List()    =>
-          case ']' :: rest_  =>
-            rest = rest_
-          case ch  :: _  =>
-            val (nextLex, rest_) = primClass(rest)
-            current = current || nextLex
-            rest    = rest_
-          case _ =>
+    // <charclassbody>]
+    def charClass(): CharClass = {
+      //println(s"charClass(${chars.mkString("")})")
+      var current: CharClass = primClass()
+      var rd = true
+        while (rd) {
+          if (tracing) println(s"Charclass $current  @${chars.mkString("")}")
+          chars match  {
+            // end of this class
+            case ']' :: _
+            |    List() => rd = false
+
+            case '&' :: '&' :: rest =>
+              shift(rest)
+              val next = primClass()
+              current = current && next
+
+            case ch  :: _  =>
+              val next = primClass()
+              current = current || next
+
         }
       }
       //println(s"charClass(${chars.mkString("")}) = ${(current,rest)}")
-      (current, rest)
+      current
     }
   }
 }
