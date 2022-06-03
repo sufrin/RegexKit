@@ -14,7 +14,7 @@ tr("abc|de?f*")
 tr("((abc)*|de?f*)?")
 tr("((ab(c*)*)*|de?f*)?")
 
-
+tr("(x? | a?b)+bg*?cd")
 
 
 
