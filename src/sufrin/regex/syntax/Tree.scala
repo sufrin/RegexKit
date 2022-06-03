@@ -128,20 +128,21 @@ case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T
 
 }
 
-case class Span[T](expr: Tree[T], capture: Boolean=true) extends Tree[T] {
+case class Span[T](expr: Tree[T], capture: Boolean=true, reverse: Boolean = false) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     if (capture) {
-      program += machine.Start(groups)
-
+      val (start, end) = (machine.Start[T](groups), machine.End[T](groups))
+      val (ss, ee)     = if (reverse) (end, start) else (start, end)
+      program += ss
       val groups_ = expr.compile(groups, program)
-          program += machine.End(groups)
+          program += ee
           groups_ + 1
 
     } else
       expr.compile(groups, program)
   }
 
-  def reversed: Tree[T] = Span(expr.reversed, capture)
+  def reversed: Tree[T] = Span(expr.reversed, capture, !reverse)
 
   override def source: String = s"(${expr.source})"
 }
