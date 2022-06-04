@@ -113,8 +113,10 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
         case '?' :: _ => result(Opt(false))
         case '\\' :: 's'  :: rest => result(Lit(' '), rest)
         case '\\' :: '\\' :: rest => result(Lit('\\'), rest)
-        case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) => result(Lit(hexer(a,b,c,d).toChar), rest)
-        case '\\' :: 'u'  :: rest => SyntaxError(s"Invalid unicode escape at $position")(Nonce)
+        case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) => 
+              result(Lit(hexer(a,b,c,d).toChar), rest)
+        case '\\' :: 'u'  :: rest => 
+              SyntaxError(s"Invalid unicode escape at $position")(Nonce)
         case '\\' :: ch   :: rest => result(Predef(ch, { Lit(ch) }), rest)
         case '['  :: rest =>
              val pos = position
@@ -201,7 +203,8 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
         case l :: '-' :: r :: rest =>
           result(new CharRange(l, r), rest)
 
-        case char :: rest if "]&" contains char => // TODO: discriminate between strict and lenient class syntax
+        // TODO: discriminate between strict and lenient class syntax
+        case char :: rest if "]&" contains char => 
           SyntaxError(s"Improper character spec (stray unquoted '$char') at $position")(ZeroClass)
 
         case char :: rest  =>
@@ -216,13 +219,13 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
     def charClass(): CharClass = {
       //println(s"charClass(${chars.mkString("")})")
       var current: CharClass = primClass()
-      var rd = true
-        while (rd) {
+      var shifting = true
+        while (shifting) {
           if (tracing) println(s"Charclass $current  @${chars.mkString("")}")
           chars match  {
             // end of this class
             case ']' :: _
-            |    List() => rd = false
+            |    List() => shifting = false
 
             case '&' :: '&' :: rest =>
               shift(rest)

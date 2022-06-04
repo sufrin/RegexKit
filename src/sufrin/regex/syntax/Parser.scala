@@ -40,17 +40,23 @@ class Parser (val text: String, val tracing: Boolean = false)  {
       lexeme match {
         case End | Bar | Ket         =>  rd = false
 
-        case Opt (nonGreedy)         =>  push (sufrin.regex.syntax.Opt (pop(), nonGreedy))
-        case Plus(nonGreedy)         =>  push (sufrin.regex.syntax.Plus(pop(), nonGreedy))
-        case Star(nonGreedy)         =>  push (sufrin.regex.syntax.Star(pop(), nonGreedy))
+        case Opt (nonGreedy)         =>  push (sufrin.regex.syntax.Opt (nonGreedy, pop()))
+        case Plus(nonGreedy)         =>  push (sufrin.regex.syntax.Plus(nonGreedy, pop()))
+        case Star(nonGreedy)         =>  push (sufrin.regex.syntax.Star(nonGreedy, pop()))
 
+        // for simplicity we don't enforce the end of the sequence at which an anchor appears
+        // TODO: check during `toSeq`
+        case LeftAnchor              =>  push (sufrin.regex.syntax.Anchor(left=true))
+        case RightAnchor             =>  push (sufrin.regex.syntax.Anchor(left=false))
+
+        case Dot                     => push (sufrin.regex.syntax.Any)
         case Lit(char)               => push (Literal(char))
         case CharClass(sat, explain) => push (Sat(sat, explain))
 
         case Bra =>
           val e = parseExpr()
           if (lexeme != Ket) SyntaxError(s"(...) malformed at $lexeme")(Literal('?'))
-          push (Span(e, true))
+          push (Span(capture=true, reverse=false, e))
       }
       if (rd) nextLexeme()
     }
@@ -67,6 +73,11 @@ class Parser (val text: String, val tracing: Boolean = false)  {
                case Bar =>
                   nextLexeme()
                   e = Alt(e, parseSeq())
+
+               case RightAnchor =>
+                 nextLexeme()
+                 e = sufrin.regex.syntax.AnchorEnd(e)
+
                case _ =>
                   rd = false
             }

@@ -23,6 +23,10 @@ trait Instruction[-T] {
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result
 }
 
+case object Any extends Instruction[Any] {
+  def execute(start: Int, end: Int, sourcePos: Int, in: Any, pc: Int, groups: Groups): Result = Next(groups)
+}
+
 case class Monitor[T](run: () => Unit) extends Instruction[T] {
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result = Schedule(pc+1, groups)
 }
