@@ -23,11 +23,13 @@ trait Tree[T]  {
   def *   : Tree[T]             = Star[T](expr=this, short = false)
   def *?  : Tree[T]             = Star[T](expr=this, short = true)
 
-  def compile(showCode: Boolean = false): Program[T] = {
+  def compile(reverse: Boolean = false, showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
-    builder += machine.Start(0)
-    compile(1, builder)
-    builder += machine.End(0)
+    val (start, end) = (machine.Start[T](0), machine.End[T](0))
+    val (ss, ee)     = if (reverse) (end, start) else (start, end)
+    builder += ss
+    if (reverse) reversed.compile(0, builder) else this.compile(0, builder)
+    builder += ee
     builder += machine.Matched(-1)
     if (showCode) println(source)
     if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
@@ -70,7 +72,7 @@ case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
     for { expr <- seq } g = expr.compile(g, program)
     g
   }
-  def reversed: Tree[T] = Seq(seq.reverse.map(_.reversed))
+  lazy val  reversed: Tree[T] = Seq(seq.reverse.map(_.reversed))
   override def source: String = seq.map(_.source).mkString("","","")
   override def ++(r: Tree[T]): Tree[T] = Seq(seq appended r)
 
@@ -89,7 +91,8 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
     groups__
   }
 
-  def reversed: Tree[T] = Alt(l.reversed, r.reversed)
+  // Leftward priority is maintained. Is this a good idea?
+  lazy val  reversed: Tree[T] = Alt(l.reversed, r.reversed)
 
   override def source: String = s"${l.source} | ${r.source}"
 }
@@ -126,9 +129,10 @@ case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T
 
     maxGroups
   }
-  def reversed: Tree[T] = Branch(branches.reverse.map(_.reversed))
 
-  override def compile(showCode: Boolean = false): Program[T] = {
+  lazy val reversed: Tree[T] = Branch(branches.reverse.map(_.reversed))
+
+  override def compile(reversed: Boolean = false, showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
     compile(0, builder)
     if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
@@ -142,18 +146,17 @@ case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T
 case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T]) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     if (capture) {
-      val (start, end) = (machine.Start[T](groups), machine.End[T](groups))
+      val (start, end) = (machine.Start[T](groups+1), machine.End[T](groups+1))
       val (ss, ee)     = if (reverse) (end, start) else (start, end)
       program += ss
-      val groups_ = expr.compile(groups, program)
+      val groups_ = expr.compile(groups+1, program)
           program += ee
-          groups_ + 1
-
+          groups_
     } else
       expr.compile(groups, program)
   }
 
-  def reversed: Tree[T] = Span(capture, !reverse, expr.reversed)
+  lazy val reversed: Tree[T] = Span(capture, !reverse, expr.reversed)
 
   override def source: String = s"(${expr.source})"
 }
@@ -183,7 +186,7 @@ case class Opt[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
     groups_
   }
 
-  def reversed: Tree[T] = Opt(short, expr.reversed)
+  lazy val reversed: Tree[T] = Opt(short, expr.reversed)
 
   override def source: String = s"${expr.source}?"+(if (short) "?" else "")
 
@@ -218,7 +221,7 @@ case class Star[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
     groups_
   }
 
-  def reversed: Tree[T] = Star(short, expr.reversed)
+  lazy val reversed: Tree[T] = Star(short, expr.reversed)
 
   override def source: String = s"${expr.source}*"+(if (short) "?" else "")
 
@@ -249,7 +252,7 @@ case class Plus[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
     groups_
   }
 
-  def reversed: Tree[T] = Plus(short, expr.reversed)
+  lazy val  reversed: Tree[T] = Plus(short, expr.reversed)
 
   override def source: String = s"${expr.source}+"+(if (short) "?" else "")
 
@@ -262,7 +265,7 @@ case class Anchor[T](left: Boolean) extends Tree[T] {
     groups
   }
 
-  def reversed: Tree[T] = Anchor(!left)
+  lazy val  reversed: Tree[T] = Anchor(!left)
 
   override def source: String = if (left) "^" else "$"
 
@@ -274,7 +277,8 @@ case class AnchorStart[T](expr: Tree[T]) extends Tree[T] {
     program += machine.AtStart
     expr.compile(groups, program)
   }
-  def reversed: Tree[T] = AnchorEnd(expr.reversed)
+
+  lazy val  reversed: Tree[T] = AnchorEnd(expr.reversed)
 
   override def source: String = s"^${expr.source}"
 }
@@ -286,7 +290,8 @@ case class AnchorEnd[T](expr: Tree[T]) extends Tree[T] {
     program += machine.AtEnd
     groups_
   }
-  def reversed: Tree[T] = AnchorStart(expr.reversed)
+
+  lazy val  reversed: Tree[T] = AnchorStart(expr.reversed)
   override def source: String = s"${expr.source}$$"
 
 }

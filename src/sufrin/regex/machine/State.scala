@@ -75,7 +75,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         case Stop =>
           // spawn a virgin fibre (see NB above)
           if (searching)
-            pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
+             pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Next(groups) =>
           pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })

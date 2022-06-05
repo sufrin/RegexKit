@@ -28,7 +28,11 @@ trait Groups {
   def size: Int
 
   def spans: Iterable[(Int, Int)] =
-    for { i <- 0 until size; span <- apply(i)} yield span
+    for { i <- 0 until size } yield
+          apply(i) match {
+            case Some (span) => span
+            case None        => (0, 0) // an empty span
+          }
 
 }
 

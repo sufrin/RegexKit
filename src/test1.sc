@@ -1,93 +1,64 @@
-import sufrin.regex.machine._
-import sufrin.regex.syntax
-import sufrin.regex.syntax._
+import sufrin.regex.TestKit._
 
-val text = "abcd efg abcdefg"
+//ends("-cr")("abc|(abcdef)")
+//ends("-cr")("(abc)+|(abcdef)")
+starts("c", "abcdefg")("(abcx)|(ab(cd)(ef))(g)")
 
-import scala.language.postfixOps
-val word   = syntax.Sat((c: Char) => ('a'<=c) && ('z'>=c) , "\\w")
-val unWord = syntax.Sat((c: Char) => ! ('a'<=c) || ! ('z'>=c) , "\\W")
+starts("c", "1")("(\\d+)")
 
-def run(trace: String = "", label: String, search: Boolean = false, subject: String = text)(pat: Tree[Char]): Unit =
-  { var showCode   = false
-    var traceSteps = false
-    var tracePos   = false
-    for ( c <- trace.toLowerCase() ) c match {
-      case 'c' => showCode=true
-      case 's' => traceSteps=true
-      case '@' => tracePos=true
-    }
-    if (showCode||traceSteps) println(label)
-    val compiled = pat.compile(showCode)
-    val state    = new State[Char](compiled, Groups.empty, subject, 0, subject.length, traceSteps)
-    val result   = state.run(search, tracePos)
-    println(s"$label ${pat.source} @ $subject ==> ")
-    for { r <- result }
-      println(s"     =>   $r")
-  }
+starts("c", "12233344445555")("(\\d+)")
+
+starts("c", "12233344445555")("((\\d)+)")
+
+starts("cs@", "122 33344445555")("((\\d)+)")
+
+find("cs@", "abc 122 33344445555")("(\\d+)")
 
 
-def parse(pat: String): Tree[Char] = new Parser(pat).tree
+all("cs@", "1 22 333 4444 5555")("(\\d+)")
 
 
-def find(trace: String = "", subject: String = text)(pat: String): Unit = {
-  val tree = new Parser(pat).tree
-  run(trace, "find", search=true, subject)(tree)
+
+starts("c", "12233344445555")("(\\d+)(5)")
+starts("c", "12233344445555")("(\\d+)(55)")
+starts("c", "12233344445555")("((\\d)+)(55)")
+
+
+
+
+/* Repetition of a nilpotent RE
+//find("@cs", "fooabbggggggcde")("(x? | a?b)+bg*?cd")
+//pprint(parse("(x? | a?b)+bg*?cd"))
+(parse("(x? | a?b)+bg*?cd")).compile(true)
+*/
+// PROBLEMATIC
+//find("@cs", "fooabbggggggcde")("(a?b)+bg*?cd")
+//find("@cs", "fooabbggggggcde")("([^ab])+?(a?b| x?)+bg*?cd")
+//find("@cs", "fooabbggggggcde")("([^ab])*(a?b| x?)+bg*?cd")
+
+
+if (false) {
+  //def span(t: Tree[Char]): Tree[Char] = Span(false, false, t)
+  //run("", "run")(Alt("abc"!, span("abcdef"!)))
+  starts("")("abc|(abcdef)")
+  println("============")
+  find("")("abc|(abcdef)")
+  println("============")
+  all("")("abc|(abcdef)")
+  println("============")
+  all("")("efg|(abcdef)")
+  println("============")
+  all("", "the bcd representxy is foxed")("bcd|(efg$)|xy|(abcdef)")
+  println("============")
+  all("@cs", "ten is  10 andnext is 123")("(\\d+)(\\D|$)")
+  println("============")
+  all("@cs", "ten is 10 next is 123")("\\D(\\d+)")
+  println("============")
+  all("@cs", "one 1 two 10 three 133  four 4444 three 123 ")("(\\d+)")
+  println("============")
+
+  all("@c", "one 1 two 22 three 333  four 4444 three 123 ")("(\\d+)(\\D)")
+  all("@cs", "one 1 two 22 three 333  four 4444 three 123 ")("(\\d+)")
+  find("@cs", "one 1 two 22 three 333  four 4444 three 123 ")("((\\d+)\\D+?)+")
 }
-
-def starts(trace: String = "", subject: String = text)(pat: String): Unit = {
-  val tree = new Parser(pat).tree
-  run(trace, "starts", search=true, subject)(tree)
-}
-
-def all(trace: String = "", subject: String = text)(pat: String): Unit = {
-  var showCode   = false
-  var traceSteps = false
-  var tracePos   = false
-  for ( c <- trace.toLowerCase() ) c match {
-    case 'c' => showCode=true
-    case 's' => traceSteps=true
-    case '@' => tracePos=true
-  }
-  val tree = new Parser(pat).tree
-  var start    = 0
-  var running = true
-  println(s"all ($subject) $pat ==> ")
-
-  val compiled = tree.compile(showCode)
-
-  while (running && start<subject.length) {
-    var state    = new State[Char](compiled, Groups.empty, subject, start, subject.length, traceSteps)
-    var result   = state.run(search=true, tracePos)
-    if (result.isEmpty)
-      running = false
-    else {
-      println("********")
-      var here = result.get.start
-      for {r <- result} println(s"@$start     =>   $r")
-      start = result.get.end
-      println("********")
-    }
-  }
-}
-
-def span(t: Tree[Char]): Tree[Char] = Span(false, false, t)
-//run("", "run")(Alt("abc"!, span("abcdef"!)))
-starts("")("abc|(abcdef)")
-println("============")
-find("")("abc|(abcdef)")
-println("============")
-all("")("abc|(abcdef)")
-println("============")
-all("")("efg|(abcdef)")
-println("============")
-all("", "the bcd representxy is foxed")("bcd|(efg$)|xy|(abcdef)")
-println("============")
-all("@cs", "ten is  10 andnext is 123")("(\\d+)(\\D|$)")
-println("============")
-all("@cs", "ten is 10 next is 123")("\\D(\\d+)")
-println("============")
-all("@cs", "ten is 10 next is 123 ")("\\D(\\d+)")
-println("============")
-find("@cs", "fooabbggggggcde")("(x? | a?b)+bg*?cd")
 
