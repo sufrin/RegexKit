@@ -112,7 +112,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         if (result.nonEmpty) lastResult = result
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
-        if (result.nonEmpty && pending.nonEmpty && sourcePos<end && !search)  result = None
+        if (!search && result.nonEmpty && pending.nonEmpty && sourcePos<end)  result = None
       }
       // current.isEmpty || result.nonEmpty
       continue()
@@ -132,10 +132,17 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
     if (traceSteps) println("Finally:")
 
+    var finalIn = arbitraryInput
+
+    if (sourcePos < end) {
+      finalIn = input(sourcePos)
+      sourcePos += 1
+    }
+
     /* If `current.nonEmpty` then the transition to an accepting (or failing) state
      * still requires the execution of further ''housekeeping'' instructions
      */
-    nextNDAState(arbitraryInput) match {
+    nextNDAState(finalIn) match {
       case None    => result = lastResult
       case success => result = success
     }
