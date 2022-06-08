@@ -47,4 +47,14 @@ object Util {
 
   def parse(pat: String): Tree[Char] = new Parser(pat).tree
 
+  class IndexedCharSeq(chars: CharSequence) extends IndexedSeq[Char] {
+    @inline def apply(i: Int): Char = chars.charAt(i)
+    @inline def length: Int         = chars.length
+  }
+
+  object IndexedCharSeq {
+    def apply(string: String): IndexedSeq[Char] = string
+    def apply(chars: CharSequence): IndexedSeq[Char] = new IndexedCharSeq(chars)
+  }
+
 }

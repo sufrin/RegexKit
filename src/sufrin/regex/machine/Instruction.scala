@@ -38,7 +38,36 @@ case class Lit[T](value: T)           extends Instruction[T] {
 
 case class Sat[T](sat: T => Boolean, explain: String)  extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
-      if (sat(in)) Next(groups) else Stop
+    if (sat(in)) Next(groups) else Stop
+  override def toString: String = explain
+}
+
+case class BoundarySat[T](sat: T => Boolean, explain: String)  extends Instruction[T]{
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+    if (sat(in)) Next(groups)
+    else
+    if (sourcePos==start || sourcePos==end) Schedule(pc+1, groups)
+    else
+      Stop
+  override def toString: String = s"$explain|^|$$"
+}
+
+/** A guarded jump that consumes nothing; suitable for use
+ *  when compiling repeats or opts
+ *
+ *  without this instruction R+ compiles to
+ *  => s => e
+ *  s: R
+ *     => s
+ *  e:
+ *
+ *  But
+ *
+ *
+ */
+case class Guard[T](sat: T => Boolean, label: Lab[T], explain: String)  extends Instruction[T]{
+  def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
+    if (sat(in)) Schedule(label.loc, groups) else Next(groups)
   override def toString: String = explain
 }
 

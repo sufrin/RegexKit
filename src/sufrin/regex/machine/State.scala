@@ -70,16 +70,16 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    */
   def oneProgramStep(searching: Boolean, sourcePos: Int, in: T, pc: Int, groups: Groups): Result= {
     val continuation = program(pc).execute(start, end, sourcePos, in, pc, groups)
-    if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, $in, $pc) = $continuation")
+    if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, '$in', $pc) = $continuation")
     continuation match {
         case Stop =>
           // spawn a virgin fibre (see NB above)
-          if (searching)
+          if (searching && lastResult.isEmpty)
              pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Next(groups) =>
           pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })
-          if (searching) // spawn a virgin fibre (see NB above)
+          if (searching && lastResult.isEmpty) // spawn a virgin fibre (see NB above)
              pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Schedule(apc, groups) =>
@@ -97,11 +97,11 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     /*
      *  Invariant: sourcePos <= startPos <= end
      */
-    var sourcePos      = start
+    var sourcePos = start
     var result: Result = None
 
     /** Set `current` to the next NDA state */
-    @inline def nextNDAState(in: T): Result= {
+    @inline def nextNDAState(in: T): Result = {
       var result: Result = None
 
       while (current.nonEmpty && result.isEmpty) {
@@ -109,10 +109,13 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         val groups = fibre.groups
         result = oneProgramStep(search, sourcePos, in, fibre.pc, groups)
 
+        if (traceSteps) if (result.nonEmpty) println(s"        *** lastResult was $lastResult now $result")
         if (result.nonEmpty) lastResult = result
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
-        if (!search && result.nonEmpty && pending.nonEmpty && sourcePos<end)  result = None
+        if (traceSteps) if (!search && result.nonEmpty && pending.nonEmpty && sourcePos < end) println(s"        *** result: $result => None\n        current: $current")
+        if (!search && result.nonEmpty && pending.nonEmpty && sourcePos < end) result = None
+        if (traceSteps) { println(s"        *** C: ${current.repString}, P: ${pending.repString}") }
       }
       // current.isEmpty || result.nonEmpty
       continue()
@@ -122,38 +125,49 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     current.addFibre(0, new Fibre(0, groups))
     sourcePos = start
 
-    while (result.isEmpty && current.nonEmpty && sourcePos < end) {
-      val in = input(sourcePos)
-      if (tracePos) println(s"$in@$sourcePos")
-      result = nextNDAState(in)
-      sourcePos += 1
-    }
-    // result.nonEmpty || current.isEmpty || sourcePos==end
+      while (result.isEmpty && current.nonEmpty && sourcePos < end) {
+        val in = input(sourcePos)
+        if (tracePos) println(s"'$in'@$sourcePos")
+        result = nextNDAState(in)
+        sourcePos += 1
+      }
+      // result.nonEmpty || current.isEmpty || sourcePos==end
 
-    if (traceSteps) println("Finally:")
+      if (traceSteps) println(s"Finally: (result: $result, lastResult: $lastResult")
 
-    var finalIn = arbitraryInput
+      var finalIn = arbitraryInput
 
-    if (sourcePos < end) {
-      finalIn = input(sourcePos)
-      sourcePos += 1
-    }
+      if (sourcePos < end) {
+        finalIn = input(sourcePos)
+        if (tracePos) println(s"$finalIn@$sourcePos")
+        sourcePos += 1
+      }
 
-    /* If `current.nonEmpty` then the transition to an accepting (or failing) state
+      /* If `current.nonEmpty` then the transition to an accepting (or failing) state
      * still requires the execution of further ''housekeeping'' instructions
      */
-    nextNDAState(finalIn) match {
-      case None    => result = lastResult
-      case success => result = success
-    }
+      nextNDAState(finalIn) match {
+        case None => result = lastResult
+        case success => result = success
+      }
+
+
+    // *******
+
 
     result match {
       case None => None
-      case Some((index, groups)) => Some(new Match(input, index, groups))
+      case Some((index, groups)) => Some(wrap(input, index, groups))
      }
   }
 
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
+
+  def wrap(_input: IndexedSeq[T], _index: Int, _groups: Groups): Match[T]  = new Match[T] {
+     val input  = _input
+     val index  = _index
+     val groups = _groups
+  }
 }
 
 object State {

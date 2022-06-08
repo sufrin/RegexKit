@@ -10,7 +10,7 @@ import sufrin.regex.machine.Program.Program
  *  The `groups` represent information accumulated since the
  *  start of execution of the recogniser by this running fibre.
  */
-case class Fibre[T](pc: Int, groups: Groups) {
+case class Fibre[T](val pc: Int, groups: Groups) {
 
   def ==(that: Fibre[T]): Boolean = pc==that.pc
 
@@ -81,4 +81,5 @@ class FibreSet[T](program: Program[T]) {
   }
 
   override def toString: String = set.map(thread => s"${thread.pc}: ${thread.groups}").mkString("\n ")
+  def repString: String = set.map(_.pc).mkString("[", ",", "]")
 }

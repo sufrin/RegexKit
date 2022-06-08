@@ -30,6 +30,12 @@ case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
   def ||(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) || that.sat(ch), s"$explain||${that.explain}")
 
   override def toString: String = s"[$explain]"
+
+  /** iff this class is predefined by a criterion that
+   * could include a boundary. For example, \D means any non-digit position,
+   * not just any non-digit character: effectively equivalent to {{{([^d]|$|^)}}}
+   */
+   val includeBoundary: Boolean = false
 }
 
 class PredefCharClass (sat: Char => Boolean, explain: String) extends CharClass(sat, explain) {
@@ -50,11 +56,11 @@ object Predef {
   def not(pred: Char => Boolean): (Char=>Boolean) = ((ch:Char) => !(pred(ch)))
   private val table = collection.immutable.HashMap[Char,Lexeme](
     'd' -> new PredefCharClass(_.isDigit, "\\d"),
-    'D' -> new PredefCharClass(not(_.isDigit), "\\D"),
+    'D' -> new PredefCharClass(not(_.isDigit), "\\D")         { override val includeBoundary: Boolean = true},
     'w' -> new PredefCharClass(_.isLetterOrDigit, "\\w"),
-    'W' -> new PredefCharClass(not(_.isLetterOrDigit), "\\W"),
+    'W' -> new PredefCharClass(not(_.isLetterOrDigit), "\\W") { override val includeBoundary: Boolean = true},
     's' -> new PredefCharClass(_.isSpaceChar, "\\s"),
-    'S' -> new PredefCharClass(not(_.isSpaceChar), "\\s"),
+    'S' -> new PredefCharClass(not(_.isSpaceChar), "\\S")     { override val includeBoundary: Boolean = true},
     'n' -> Lit('\n'),     // newline
     't' -> Lit('\t'),     // tab
     'r' -> Lit('\r'),     // cr

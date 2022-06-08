@@ -3,7 +3,10 @@ package sufrin.regex
 import sufrin.regex.machine.Groups
 
 /** Wrapper for a successful match */
-class Match[T](val input: IndexedSeq[T], val index: Int, val groups: Groups) {
+trait Match[T] {
+  val input:  IndexedSeq[T]
+  val index:  Int
+  val groups: Groups
 
   /**
    *   A view of the `i`'th group. At present this is implemented lazily,

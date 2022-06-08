@@ -51,7 +51,8 @@ class Parser (val text: String, val tracing: Boolean = false)  {
 
         case Dot                     => push (sufrin.regex.syntax.Any)
         case Lit(char)               => push (Literal(char))
-        case CharClass(sat, explain) => push (Sat(sat, explain))
+        case charClass @ CharClass(sat, explain) =>
+             push (if (charClass.includeBoundary) BoundarySat(sat, explain) else Sat(sat, explain))
 
         case Bra =>
           val e = parseExpr()

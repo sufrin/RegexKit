@@ -25,7 +25,7 @@ object TestKit {
       case 't' => showTree=true
       case 'r' => showReversed=true
     }
-    if (showCode || traceSteps) println(s"$label ($subject) ")
+    println(s"$label ($subject) ${pat.source}")
     val compiled = pat.compile(reverse=false, showCode)
     if (showTree) Util.pprint(pat)
     if (showReversed) Util.pprint(pat.reversed)
@@ -55,7 +55,7 @@ object TestKit {
       case 't' => showTree=true
       case 'r' => showReversed=true
     }
-    if (showCode || traceSteps) println(s"$label ($subject) ")
+    println(s"$label ($subject) ${pat.source}")
     val compiled = pat.compile(reverse = true, showCode)
     if (showTree) Util.pprint(pat)
     if (showReversed) Util.pprint(pat.reversed)
