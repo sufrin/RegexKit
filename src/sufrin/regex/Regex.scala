@@ -14,6 +14,8 @@ class Regex(val tree: Tree[Char], var code: Boolean, var trace: Boolean) {
   lazy val forwardCode = tree.compile(reverse = false, showCode = code)
   lazy val reverseCode = tree.compile(reverse = true,  showCode = code)
 
+  override def toString: String = s"Regex(${tree.source})"
+
   def matchesPrefix(subject: CharSequence, from: Int = -1, to: Int = -1): Option[Match[Char]] = {
     val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace)
     state.run(search = false, trace)

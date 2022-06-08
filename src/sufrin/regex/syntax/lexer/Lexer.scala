@@ -31,9 +31,11 @@ case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
 
   override def toString: String = s"[$explain]"
 
-  /** iff this class is predefined by a criterion that
-   * could include a boundary. For example, \D means any non-digit position,
-   * not just any non-digit character: effectively equivalent to {{{([^d]|$|^)}}}
+  /** True when this class is predefined and should include a
+   * right boundary.
+   *
+   * For example, \D matches non-digit positions including the end of the
+   * subject text: in effect {{{([^d]|$|^)}}}
    */
    val includeBoundary: Boolean = false
 }

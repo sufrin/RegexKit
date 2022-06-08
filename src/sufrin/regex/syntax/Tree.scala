@@ -66,14 +66,7 @@ case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
   override def source: String = s"$explain"
 }
 
-case class BoundarySat[T](sat: T => Boolean, explain: String) extends Tree[T] {
-  def compile(groups: Int, program: Builder[T]): Int = {
-    program += machine.BoundarySat(sat, explain)
-    groups
-  }
-  def reversed: Tree[T] = this
-  override def source: String = s"$explain"
-}
+class BoundarySat[T](sat: T => Boolean, explain: String) extends Alt[T](Sat(sat, explain), Anchor(left=false))
 
 case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
