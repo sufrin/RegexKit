@@ -18,10 +18,10 @@ intPat.matches("a1234567a")             foreach show
 intPat.findPrefix("a1234567a")          foreach show
 intPat.findPrefix(("*"*30)++"1234567a") foreach show
 
-val wordsPat = Regex("""(((\w+)([^\w]|$))+)""",code=true)
-val wordsPatW = Regex("""(((\w+)(\W))+)""",code=true)
-wordsPat  findPrefix "foobaz is best for you" foreach show
-wordsPatW findPrefix "foobaz is best for you" foreach show
+val wordsPat = Regex("""((\w+([^\w]|$))+)""")
+val wordsPatW = Regex("""(\w+\W)+""")
+wordsPat  findPrefix " ====    foobaz is best for you" foreach show
+wordsPatW findPrefix " ====    foobaz is / best for you" foreach show
 
 
 
