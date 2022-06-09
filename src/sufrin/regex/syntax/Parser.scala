@@ -51,13 +51,14 @@ class Parser (val text: String, val tracing: Boolean = false)  {
 
         case Dot                     => push (sufrin.regex.syntax.Any)
         case Lit(char)               => push (Literal(char))
-        case charClass @ CharClass(sat, explain) =>
-             push (if (charClass.includeBoundary) new BoundarySat(sat, explain) else Sat(sat, explain))
 
-        case Bra =>
+        case charClass @ CharClass(sat, explain) =>
+             push (if (charClass.includeBoundary) new BoundarySat(sat, s"$explain") else Sat(sat, s"[$explain]"))
+
+        case Bra(capture) =>
           val e = parseExpr()
-          if (lexeme != Ket) SyntaxError(s"(...) malformed at $lexeme")(Literal('?'))
-          push (Span(capture=true, reverse=false, e))
+          if (lexeme != Ket) throw SyntaxError(s"( ${e.source} malformed at $lexeme when expecting ')'")
+          push (Span(capture, reverse=false, e))
       }
       if (rd) nextLexeme()
     }

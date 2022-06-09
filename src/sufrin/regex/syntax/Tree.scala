@@ -66,7 +66,13 @@ case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
   override def source: String = s"$explain"
 }
 
-class BoundarySat[T](sat: T => Boolean, explain: String) extends Alt[T](Sat(sat, explain), Anchor(left=false))
+/** Some built-in character classes with negative interpretations can helpfully be
+ * treated as syntactic sugar for an alternation with the ''right anchor''
+ * symbol; and the details are dealt with here. For example `\W` is translated
+ * into the (non-capturing) group `(?: [^\w]|$ )`
+ */
+class BoundarySat[T](sat: T => Boolean, explain: String) extends
+      Span(capture=false, reverse=false, Alt[T](Sat(sat, explain), Anchor(left=false)))
 
 case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
@@ -160,7 +166,7 @@ case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T
 
   lazy val reversed: Tree[T] = Span(capture, !reverse, expr.reversed)
 
-  override def source: String = s"(${expr.source})"
+  override def source: String = if (capture) s"(${expr.source})" else s"(?:${expr.source})"
 }
 
 /**
