@@ -1,5 +1,8 @@
 package sufrin.regex.syntax.lexer
 
+/** Report of a parsing or lexical error.
+ *  Thrown when applied.
+ */
 class SyntaxError(message: String) extends Error(message) {
   def apply[T](t: T): T = { throw this; t }
 }
@@ -10,7 +13,7 @@ object SyntaxError {
 
 sealed trait Lexeme {}
 case object End extends Lexeme
-case object Bra extends Lexeme
+case class  Bra(capture: Boolean) extends Lexeme
 case object Ket extends Lexeme
 case object Bar extends Lexeme
 case object LeftAnchor  extends Lexeme
@@ -20,6 +23,7 @@ case class  Star(nonGreedy: Boolean) extends Lexeme
 case class  Plus(nonGreedy: Boolean) extends Lexeme
 case class  Opt (nonGreedy: Boolean) extends Lexeme
 case class  Lit(char: Char) extends Lexeme
+case object ERROR           extends Lexeme
 
 case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
 
@@ -27,7 +31,7 @@ case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
 
   def &&(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) && that.sat(ch), s"$explain&&[${that.explain}]")
 
-  def ||(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) || that.sat(ch), s"$explain||${that.explain}")
+  def ||(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) || that.sat(ch), s"$explain${that.explain}")
 
   override def toString: String = s"[$explain]"
 
@@ -46,42 +50,37 @@ class PredefCharClass (sat: Char => Boolean, explain: String) extends CharClass(
 
 class CharRange(start: Char, end: Char) extends CharClass(  (ch:Char) => (start <= ch && ch <= end), s"$start-$end")
 
+class CharLit(char: Char) extends CharClass( _ == char , s"\\$char")
+
 object UnitClass extends CharClass(  (_ : Char) => true, "") {
   override def &&(that: CharClass): CharClass = that
 }
 
-object ZeroClass extends CharClass(  (_ : Char) => false, "") {
+object EMPTY extends CharClass((_ : Char) => false, "") {
   override def ||(that: CharClass): CharClass = that
 }
 
 object Predef {
   def not(pred: Char => Boolean): (Char=>Boolean) = ((ch:Char) => !(pred(ch)))
-  private val table = collection.immutable.HashMap[Char,Lexeme](
+  private val table = collection.immutable.HashMap[Char,CharClass](
     'd' -> new PredefCharClass(_.isDigit, "\\d"),
     'D' -> new PredefCharClass(not(_.isDigit), "\\D")         { override val includeBoundary: Boolean = true},
     'w' -> new PredefCharClass(_.isLetterOrDigit, "\\w"),
     'W' -> new PredefCharClass(not(_.isLetterOrDigit), "\\W") { override val includeBoundary: Boolean = true},
     's' -> new PredefCharClass(_.isSpaceChar, "\\s"),
     'S' -> new PredefCharClass(not(_.isSpaceChar), "\\S")     { override val includeBoundary: Boolean = true},
-    'n' -> Lit('\n'),     // newline
-    't' -> Lit('\t'),     // tab
-    'r' -> Lit('\r'),     // cr
-    'a' -> Lit('\u0007'), // bel
-    'f' -> Lit('\u000C'), // ff
-    'e' -> Lit('\u001B')  // esc
+    'n' -> new CharLit('\n'),     // newline
+    't' -> new CharLit('\t'),     // tab
+    'r' -> new CharLit('\r'),     // cr
+    'a' -> new CharLit('\u0007'), // bel
+    'f' -> new CharLit('\u000C'), // ff
+    'e' -> new CharLit('\u001B')  // esc
   )
   // locally { println(table) }
-  def apply(ch: Char, orElse: => Lexeme): Lexeme =
+  def apply(ch: Char, orElse: => CharClass): CharClass =
       table.getOrElse(ch, orElse)
 
-  def escape(ch: Char): Char =
-    table.get(ch) match {
-      case Some(Lit(char)) => char
-      case _               => ch
-    }
 }
-
-object Nonce extends Lit('\u0000')
 
 class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[Lexeme] {
 
@@ -107,7 +106,8 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
       chars match {
         // lexemes can be widely spaced, for clarity
         case ' ' :: rest => chars = rest; next()
-        case '(' :: _ => result(Bra)
+        case '(' :: '?' :: ':' :: rest => result(Bra(capture=false), rest)
+        case '(' :: _ => result(Bra(capture=true))
         case ')' :: _ => result(Ket)
         case '|' :: _ => result(Bar)
         case '^' :: _ => result(LeftAnchor)
@@ -119,23 +119,24 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
         case '*' :: _ => result(Star(false))
         case '+' :: _ => result(Plus(false))
         case '?' :: _ => result(Opt(false))
+
         case '\\' :: 's'  :: rest => result(Lit(' '), rest)
         case '\\' :: '\\' :: rest => result(Lit('\\'), rest)
-        case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) => 
+        case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) =>
               result(Lit(hexer(a,b,c,d).toChar), rest)
-        case '\\' :: 'u'  :: rest => 
-              SyntaxError(s"Invalid unicode escape at $position")(Nonce)
-        case '\\' :: ch   :: rest => result(Predef(ch, { Lit(ch) }), rest)
+        case '\\' :: 'u'  :: rest =>
+              throw SyntaxError(s"Invalid unicode escape at $position")
+        case '\\' :: ch   :: rest => result(Predef(ch, { new CharLit(ch) }), rest)
         case '['  :: rest =>
              val pos = position
              shift(rest)
              val next = charClass()
              chars match {
                case ']' :: rest => shift(rest); next
-               case _           => SyntaxError(s"Unterminated character class starts at $pos")(next)
+               case _           => throw SyntaxError(s"Unterminated character class starts at $pos")
              }
 
-        case ']' :: _   =>  SyntaxError(s"Stray unquoted ']' at $position")(Nonce)
+        case ']' :: _   =>  throw SyntaxError(s"Stray unquoted ']' at $position")
 
         case other :: _ =>  result(Lit(other))
 
@@ -156,7 +157,7 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
           case _ if '0'<=ch && ch <= '9' => ch-'0'
           case _ if 'a'<=ch && ch <= 'f' => ch-'a' + 10L
           case _ if 'A'<=ch && ch <= 'F' => ch-'A' + 10L
-          case _ => SyntaxError("Invalid hex digit: $ch")(0L)
+          case _                         => throw SyntaxError("Invalid hex digit: $ch")
         }
       }
     }
@@ -180,8 +181,7 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
 
         // allow escapes in character classes
         case '\\' :: char :: rest =>
-          val ch = Predef.escape(char)
-          result(CharClass(_ == ch, s"\\$char"), rest)
+          result(Predef(char, { new CharLit(char) }), rest)
 
         // negate the entire class that follows
         case '[' :: '^' :: rest =>
@@ -193,7 +193,7 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
               shift(rest)
               next
             case _ =>
-              SyntaxError(s"Unterminated character class starts at $position")(ZeroClass)
+              throw SyntaxError(s"Unterminated character class starts at $position")
           }
 
         case '[' :: rest =>
@@ -205,20 +205,20 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
               shift(rest)
               next
             case _ =>
-              SyntaxError(s"Unterminated character class starts at ${pos}")(ZeroClass)
+              throw SyntaxError(s"Unterminated character class starts at ${pos}")
           }
 
         case l :: '-' :: r :: rest =>
           result(new CharRange(l, r), rest)
 
         // TODO: discriminate between strict and lenient class syntax
-        case char :: rest if "]&" contains char => 
-          SyntaxError(s"Improper character spec (stray unquoted '$char') at $position")(ZeroClass)
+        case char :: rest if "]&" contains char =>
+          throw SyntaxError(s"Ill-formed character specification in class (stray unquoted '$char') at $position")
 
         case char :: rest  =>
           result(CharClass(_ == char, s"$char"), rest)
 
-        case _ =>  SyntaxError(s"Unterminated character spec at $position")(ZeroClass)
+        case _ =>  throw SyntaxError(s"Unterminated character spec at $position")
       }
 
     }

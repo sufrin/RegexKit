@@ -65,12 +65,16 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  '''NB:''' I gratefully acknowledge my colleague Mike Spivey's observation (based on
    *  the 1965 Thompson paper) that an appropriate technique for /searching/ rather than
    *  /matching/ is to spawn another thread at the origin of the program whenever the machine
-   *  is about to shift to consideration of the next character. I had previously performed a
-   *  match from successive starting locations.
+   *  is about to shift to consideration of the next character.
+   *
+   *  Remark: for the moment we avoid using searching because we have seen the above technique fail
+   *  for some patterns with repetition present. Instead, we treat a search as ''sliding match'' -- a technique
+   *  that can be quadratic in the size of the input when there is no match. We do, however, use it when
+   *  the pattern is (close to being)..............0 a literal.
    */
-  def oneProgramStep(searching: Boolean, sourcePos: Int, in: T, pc: Int, groups: Groups): Result= {
-    val continuation = program(pc).execute(start, end, sourcePos, in, pc, groups)
-    if (this.traceSteps) println(s"$pc: ${program(pc)} ($sourcePos, '$in', $pc) = $continuation")
+  def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result= {
+    val continuation = program(pc).execute(start, end, logPos, in, pc, groups)
+    if (this.traceSteps) println(s"$pc: ${program(pc)} ($logPos, '$in', $pc) = $continuation")
     continuation match {
         case Stop =>
           // spawn a virgin fibre (see NB above)
@@ -93,12 +97,22 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       }
   }
 
-  def run(search: Boolean = true, tracePos: Boolean = false): Option[Match[T]] = {
+  def run(reversed: Boolean, search: Boolean = true, tracePos: Boolean = false): Option[Match[T]] = {
     /*
-     *  Invariant: sourcePos <= startPos <= end
+     *  Invariant: 0<=count<=limit
      */
-    var sourcePos = start
+    var sourcePos = if (reversed) end-1 else start
+    var logPos    = if (reversed) end   else start
+    var count     = 0
+    val limit     = end-start
+    val incPos    = if (reversed) -1 else +1
     var result: Result = None
+
+    @inline def inspectNextInput(): Unit = {
+      sourcePos += incPos
+      logPos    += incPos
+      count     += 1
+    }
 
     /** Set `current` to the next NDA state */
     @inline def nextNDAState(in: T): Result = {
@@ -107,14 +121,14 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       while (current.nonEmpty && result.isEmpty) {
         val fibre = current.fetchFibre()
         val groups = fibre.groups
-        result = oneProgramStep(search, sourcePos, in, fibre.pc, groups)
+        result = oneProgramStep(search, logPos, in, fibre.pc, groups)
 
         if (traceSteps) if (result.nonEmpty) println(s"        *** lastResult was $lastResult now $result")
         if (result.nonEmpty) lastResult = result
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
-        if (traceSteps) if (!search && result.nonEmpty && pending.nonEmpty && sourcePos < end) println(s"        *** result: $result => None\n        current: $current")
-        if (!search && result.nonEmpty && pending.nonEmpty && sourcePos < end) result = None
+        // if (traceSteps) if (!search && result.nonEmpty && pending.nonEmpty && count != limit) println(s"        *** result: $result => None\n        current: $current")
+        if (!search && result.nonEmpty && pending.nonEmpty && count != limit) result = None
         if (traceSteps) { println(s"        *** C: ${current.repString}, P: ${pending.repString}") }
       }
       // current.isEmpty || result.nonEmpty
@@ -123,31 +137,31 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     }
 
     current.addFibre(0, new Fibre(0, groups))
-    sourcePos = start
+    // sourcePos = if (reversed) end-1 else start
 
-      while (result.isEmpty && current.nonEmpty && sourcePos < end) {
+      while (result.isEmpty && current.nonEmpty && count != limit) {
         val in = input(sourcePos)
         if (tracePos) println(s"'$in'@$sourcePos")
         result = nextNDAState(in)
-        sourcePos += 1
+        inspectNextInput()
       }
-      // result.nonEmpty || current.isEmpty || sourcePos==end
+      // result.nonEmpty || current.isEmpty || count == limit
 
       if (traceSteps) println(s"Finally: (result: $result, lastResult: $lastResult")
 
       var finalIn = arbitraryInput
 
-      if (sourcePos < end) {
+      if (count != limit) {
         finalIn = input(sourcePos)
         if (tracePos) println(s"$finalIn@$sourcePos")
-        sourcePos += 1
+        inspectNextInput()
       }
 
-      /* If `current.nonEmpty` then the transition to an accepting (or failing) state
-     * still requires the execution of further ''housekeeping'' instructions
-     */
+     /* If `current.nonEmpty` then the transition to an accepting (or failing) state
+      * still requires the execution of further ''housekeeping'' instructions
+      */
       nextNDAState(finalIn) match {
-        case None => result = lastResult
+        case None    => result = lastResult
         case success => result = success
       }
 
