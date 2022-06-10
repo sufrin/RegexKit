@@ -48,9 +48,11 @@ class Parser (val text: String, val tracing: Boolean = false)  {
         // TODO: check during `toSeq`
         case LeftAnchor              =>  push (sufrin.regex.syntax.Anchor(left=true))
         case RightAnchor             =>  push (sufrin.regex.syntax.Anchor(left=false))
+        case AnyAnchor               =>  push (sufrin.regex.syntax.StartOrEnd())
 
-        case Dot                     => push (sufrin.regex.syntax.Any)
+        case Dot                     => push (sufrin.regex.syntax.Any())
         case Lit(char)               => push (Literal(char))
+        case Sugar(tree)             => push(tree)
 
         case charClass @ CharClass(sat, explain) =>
              push (if (charClass.includeBoundary) new BoundarySat(sat, s"$explain") else Sat(sat, s"[$explain]"))

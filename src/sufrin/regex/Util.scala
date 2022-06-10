@@ -47,6 +47,4 @@ object Util {
 
   def parse(pat: String): Tree[Char] = new Parser(pat).tree
 
-
-
 }

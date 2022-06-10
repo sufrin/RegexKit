@@ -35,15 +35,17 @@ trait Tree[T]  {
     if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
     builder.toProgram
   }
+
+  def prettyPrint: Unit = sufrin.regex.Util.pprint(this)
 }
 
-case object Any extends Tree[Char] {
-  def compile(groups: Int, program: Builder[Char]): Int = {
+case class Any[T]() extends Tree[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
     program += machine.Any
     groups
   }
 
-  def reversed: Tree[Char] = this
+  def reversed: Tree[T] = this
 
   override def source: String = "."
 }
@@ -72,7 +74,7 @@ case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
  * into the (non-capturing) group `(?: [^\w]|$ )`
  */
 class BoundarySat[T](sat: T => Boolean, explain: String) extends
-      Span(capture=false, reverse=false, Alt[T](Sat(sat, explain), Anchor(left=false)))
+      Span(capture=false, reverse=false, Alt[T](Sat(sat, explain), StartOrEnd()))
 
 case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
@@ -276,6 +278,19 @@ case class Anchor[T](left: Boolean) extends Tree[T] {
   lazy val  reversed: Tree[T] = Anchor(!left)
 
   override def source: String = if (left) "^" else "$"
+
+}
+
+/** Matches only at an end */
+case class StartOrEnd[T]() extends Tree[T] {
+  def compile(groups: Int, program: Builder[T]): Int = {
+    program += machine.StartOrEnd
+    groups
+  }
+
+  lazy val  reversed: Tree[T] = this
+
+  override def source: String = "$$"
 
 }
 

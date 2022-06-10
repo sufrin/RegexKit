@@ -36,7 +36,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
   /**
    *  The most recent successful result, if any, delivered by
-   *  a `Matched` instruction executed during a `run`.
+   *  a `Matched` instruction executed during a `experiment`.
    *
    *  The matching algorithm keeps going after a successful
    *  match if there are prospects for a longer match.
@@ -67,24 +67,24 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  /matching/ is to spawn another thread at the origin of the program whenever the machine
    *  is about to shift to consideration of the next character.
    *
-   *  Remark: for the moment we avoid using searching because we have seen the above technique fail
-   *  for some patterns with repetition present. Instead, we treat a search as ''sliding match'' -- a technique
-   *  that can be quadratic in the size of the input when there is no match. We do, however, use it when
-   *  the pattern is (close to being)..............0 a literal.
+   *  '''Important:''' although implemented here, the technique sometimes fails to capture the content of
+   *  nested groups appropriately during a search. One case in point is an expression of the form
+   *  {{{(R1)+R2}}} when {{{R2}}} is empty, or has a prefix that may match a prefix of {{{R1}}}
    */
   def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result= {
     val continuation = program(pc).execute(start, end, logPos, in, pc, groups)
     if (this.traceSteps) println(s"$pc: ${program(pc)} ($logPos, '$in', $pc) = $continuation")
     continuation match {
         case Stop =>
-          // spawn a virgin fibre (see NB above)
+          // spawn a fresh fibre (see NB above)
           if (searching && lastResult.isEmpty)
              pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Next(groups) =>
           pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })
-          if (searching && lastResult.isEmpty) // spawn a virgin fibre (see NB above)
-             pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
+          // spawn a fresh fibre (see NB above)
+          if (searching && lastResult.isEmpty)
+            pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Schedule(apc, groups) =>
           current.addFibre(apc, { new Fibre[T](apc, groups) })
@@ -186,7 +186,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
 object State {
   /**
-   * When successful, a `run` yields a result consisting of a
+   * When successful, a `experiment` yields a result consisting of a
    *  branch-number (if the compiled program was a top-level
    *  `Branch`), together with the mapping from span indexes to
    *  the spans of the subpatterns that have been matched.

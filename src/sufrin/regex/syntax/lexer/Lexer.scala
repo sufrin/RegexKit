@@ -1,5 +1,8 @@
 package sufrin.regex.syntax.lexer
 
+import sufrin.regex.syntax.lexer.Predef.{anyUnicodeLineEnd, crlf}
+import sufrin.regex.syntax.{Alt, Span, Tree}
+
 /** Report of a parsing or lexical error.
  *  Thrown when applied.
  */
@@ -18,12 +21,14 @@ case object Ket extends Lexeme
 case object Bar extends Lexeme
 case object LeftAnchor  extends Lexeme
 case object RightAnchor extends Lexeme
+case object AnyAnchor   extends Lexeme
 case object Dot         extends Lexeme
 case class  Star(nonGreedy: Boolean) extends Lexeme
 case class  Plus(nonGreedy: Boolean) extends Lexeme
 case class  Opt (nonGreedy: Boolean) extends Lexeme
-case class  Lit(char: Char) extends Lexeme
-case object ERROR           extends Lexeme
+case class  Lit(char: Char)          extends Lexeme
+case class  Sugar(tree: Tree[Char])  extends Lexeme
+case object ERROR                    extends Lexeme
 
 case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
 
@@ -61,6 +66,9 @@ object EMPTY extends CharClass((_ : Char) => false, "") {
 }
 
 object Predef {
+  val crlf              = sufrin.regex.syntax.Seq[Char]("\u000D\u000A".map(sufrin.regex.syntax.Literal(_)))
+  val anyUnicodeLineEnd = sufrin.regex.syntax.Sat[Char]("\u000A\u000B\u000C\u000D\u0085\u2028\u2029".contains(_), "\\R")
+
   def not(pred: Char => Boolean): (Char=>Boolean) = ((ch:Char) => !(pred(ch)))
   private val table = collection.immutable.HashMap[Char,CharClass](
     'd' -> new PredefCharClass(_.isDigit, "\\d"),
@@ -106,22 +114,25 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
       chars match {
         // lexemes can be widely spaced, for clarity
         case ' ' :: rest => chars = rest; next()
-        case '(' :: '?' :: ':' :: rest => result(Bra(capture=false), rest)
-        case '(' :: _ => result(Bra(capture=true))
-        case ')' :: _ => result(Ket)
-        case '|' :: _ => result(Bar)
-        case '^' :: _ => result(LeftAnchor)
-        case '$' :: _ => result(RightAnchor)
-        case '.' :: _ => result(Dot)
-        case '*' :: '?' :: rest => result(Star(true), rest)
-        case '+' :: '?' :: rest => result(Plus(true), rest)
-        case '?' :: '?' :: rest => result(Opt(true), rest)
-        case '*' :: _ => result(Star(false))
-        case '+' :: _ => result(Plus(false))
-        case '?' :: _ => result(Opt(false))
+        case '(' :: '?' :: ':' :: rest  => result(Bra(capture=false), rest)
+        case '(' :: _                   => result(Bra(capture=true))
+        case ')' :: _                   => result(Ket)
+        case '|' :: _                   => result(Bar)
+        case '^' :: _                   => result(LeftAnchor)
+        case '$' :: '$' :: rest         => result(AnyAnchor, rest)
+        case '$' :: _                   => result(RightAnchor)
+        case '.' :: _                   => result(Dot)
+        case '*' :: '?' :: rest         => result(Star(true), rest)
+        case '+' :: '?' :: rest         => result(Plus(true), rest)
+        case '?' :: '?' :: rest         => result(Opt(true), rest)
+        case '*' :: _                   => result(Star(false))
+        case '+' :: _                   => result(Plus(false))
+        case '?' :: _                   => result(Opt(false))
 
-        case '\\' :: 's'  :: rest => result(Lit(' '), rest)
-        case '\\' :: '\\' :: rest => result(Lit('\\'), rest)
+        case '\\' :: 's'  :: rest       => result(Lit(' '), rest)
+        case '\\' :: 'R'  :: rest       => result(Sugar(Span(capture=false, reverse=false, Alt[Char](crlf, anyUnicodeLineEnd))), rest)
+
+        case '\\' :: '\\' :: rest       => result(Lit('\\'), rest)
         case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) =>
               result(Lit(hexer(a,b,c,d).toChar), rest)
         case '\\' :: 'u'  :: rest =>

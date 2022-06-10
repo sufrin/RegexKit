@@ -71,6 +71,11 @@ case object AtEnd   extends Instruction[Any]{
     if (sourcePos==end) Schedule(pc+1, groups) else Stop
 }
 
+case object StartOrEnd   extends Instruction[Any]{
+  def execute(start: Int, end: Int, sourcePos: Int, in: Any, pc: Int, groups: Groups): Result =
+    if (sourcePos==end || sourcePos==start) Schedule(pc+1, groups) else Stop
+}
+
 case object Anything extends Instruction[Any] {
   def execute(start: Int, end: Int, sourcePos: Int, in: Any, pc: Int, groups: Groups): Result =
     Next(groups)
