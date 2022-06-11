@@ -44,6 +44,8 @@ class FibreSet[T](program: Program[T]) {
   private val present   = Array.ofDim[Boolean](program.length)
   private val set       = new collection.mutable.Queue[Fibre[T]](10)  // Array.ofDim[Fibre[T]](program.length)
   @inline def nonEmpty: Boolean = set.nonEmpty
+  @inline def add(f: Fibre[T]): Unit = set.enqueue(f)
+  @inline def fetch(): Fibre[T]      = set.dequeue()
 
   def clear(): Unit = {
     for { i<-0 until program.length } { present(i) = false }
@@ -68,14 +70,14 @@ class FibreSet[T](program: Program[T]) {
   def addFibre(pc: Int, fibre: => Fibre[T]): Unit = {
     if (!present(pc))  {
       val theFibre = fibre
-      set.enqueue(theFibre)
+      add(theFibre)
       // assert(theFibre.pc==pc, "addFibre($pc, $theFibre) -- $pc != ${theFibre.pc}")
       present(pc) = true
     }
   }
 
   def fetchFibre(): Fibre[T] = {
-    val fibre = set.dequeue()
+    val fibre = fetch()
     present(fibre.pc) = false
     fibre
   }
