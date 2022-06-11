@@ -5,43 +5,44 @@
  */
 
 import sufrin.regex.Regex
-import sufrin.regex.Regex.StringMatch
 
-val realPatPlus = Regex("""\d+(?: \.\d+  [eE]-?\d+ | [eE]-?\d+)""")
+implicit class Showable(a: Any) {
+  def show(): Unit =
+    a match {
+      case i: Iterable[Any] => println("("); for { o <- i } println(s" $o"); println(")")
+      case i: Iterator[Any] => println("("); for { o <- i } println(s" $o"); println(")")
+      case _                => println(a)
+    }
+}
 
-realPatPlus.findSuffix("1234.567e6aaaa") .
-  map {
-    case StringMatch(s) => s
-  } . toList
+val exp0 = Regex("""((a|b)*)((bc*?)*)((cd|de*)*)(e*)""")
+val exp1 = Regex("""((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
+exp0.matches("abababccccbccdcdeee") . show()
+exp1.matches("abababccccbccdcdeee") . show()
 
+val numPat = Regex("""\d+(( \.\d+[eE]-?\d+ | [eE]-?\d+ | \.\d+ )??)""")
+numPat.matches("1234.567e6") . show()
+numPat.findPrefix("aaaaa1234.567e6") . show()
+numPat.matches("1234.567") . show()
+numPat.findPrefix("aaaaa1234.567") . show()
 
-val realPatStar = Regex("""\d+(?: \.\d*  [eE]-?\d+ | [eE]-?\d+)""", showCode = true)
+val realPatPlus = Regex("""\d+(?: (?: \.\d+  [eE]-?\d+ ) | (?: \.\d+))""")
+val realPatStar = Regex("""\d+(?: (?: \.\d*  [eE]-?\d+ ) | (?: \.\d+))""")
 
-realPatStar.findSuffix("1234.567e6aaaa") .
-  map {
-    case StringMatch(s) => s
-  } . toList
+realPatPlus.findSuffix("1234.567e6aaaa") . show()
+realPatStar.findSuffix("1234.567e6aaaa") . show()
+realPatStar.findSuffix("1234.567e-60aaaa") . show()
+realPatStar.findPrefix("aaa1234.567e-6aaaa") . show()
+realPatPlus.findPrefix("aaa1234.567e-6aaaa") . show()
+realPatStar.findPrefix("aaa1234.e-6aaaa") . show()
+realPatPlus.findPrefix("aaa1234.e-6aaaa") . show()
+realPatStar.findSuffix("aaa1234.e-6aaaa") . show()
+realPatPlus.findSuffix("aaa1234.e-6aaaa") . show()
 
-
-realPatStar.findSuffix("1234.567aaaa") .
-  map {
-    case StringMatch(s) => s
-  } . toList
-
-realPatStar.findPrefix("aaa1234.567e6aaaa") .
-  map {
-    case StringMatch(s) => s
-  } . toList
-
-val revPatStar = Regex("""(?:[\d]+-?[eE][\d]*[\.] | [\d]+-?[eE])[\d]+""", true, true)
-
-revPatStar.tree == realPatStar.tree.reversed
-
-revPatStar.prefixes("1234.567e6".reverse)
-
-val revPatPlus = Regex("""(?:[\d]+-?[eE][\d]+[\.] | [\d]+-?[eE])[\d]+""", true, true)
-
-revPatPlus.tree == realPatStar.tree.reversed
-
-revPatPlus.prefixes("1234.567e6".reverse)
+val revPatStar = Regex(realPatStar.tree.reversed, false, false)
+val revPatPlus = Regex(realPatStar.tree.reversed, false, false)
+// revPatStar.tree == realPatStar.tree.reversed
+revPatStar.prefixes("1234.567e6".reverse) . show()
+//revPatPlus.tree == realPatStar.tree.reversed
+revPatPlus.prefixes("1234.567e6".reverse) . show()
 
