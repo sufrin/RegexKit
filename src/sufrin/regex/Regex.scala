@@ -63,7 +63,8 @@ object Regex {
    * @param showCode print the compiled code of the automaton after compilation
    * @param trace trace the running automaton during searches/matches.
    */
-  def apply(tree: Tree[Char], showCode: Boolean, trace: Boolean): Regex = new Regex(tree, showCode, trace)
+   def apply(tree: Tree[Char], showCode: Boolean, trace: Boolean): Regex =
+       new Regex(tree, showCode, trace)
 
 
 }
