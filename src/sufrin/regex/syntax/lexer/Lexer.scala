@@ -1,7 +1,6 @@
 package sufrin.regex.syntax.lexer
 
-import sufrin.regex.syntax.lexer.Predef.{anyUnicodeLineEnd, crlf}
-import sufrin.regex.syntax.{Alt, Span, Tree}
+import sufrin.regex.syntax.Tree
 
 /** Report of a parsing or lexical error.
  *  Thrown when applied.
@@ -21,7 +20,6 @@ case object Ket extends Lexeme
 case object Bar extends Lexeme
 case object LeftAnchor  extends Lexeme
 case object RightAnchor extends Lexeme
-case object AnyAnchor   extends Lexeme
 case object Dot         extends Lexeme
 case class  Star(nonGreedy: Boolean) extends Lexeme
 case class  Plus(nonGreedy: Boolean) extends Lexeme
@@ -46,7 +44,7 @@ case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
    * For example, \D matches non-digit positions including the end of the
    * subject text: in effect {{{([^d]|$|^)}}}
    */
-   val includeBoundary: Boolean = false
+  val includeBoundary: Boolean = false
 }
 
 class PredefCharClass (sat: Char => Boolean, explain: String) extends CharClass(sat, explain) {
@@ -55,7 +53,7 @@ class PredefCharClass (sat: Char => Boolean, explain: String) extends CharClass(
 
 class CharRange(start: Char, end: Char) extends CharClass(  (ch:Char) => (start <= ch && ch <= end), s"$start-$end")
 
-class CharLit(char: Char) extends CharClass( _ == char , s"\\$char")
+class CharLit(char: Char, explain: String) extends CharClass( _ == char , explain)
 
 object UnitClass extends CharClass(  (_ : Char) => true, "") {
   override def &&(that: CharClass): CharClass = that
@@ -66,27 +64,80 @@ object EMPTY extends CharClass((_ : Char) => false, "") {
 }
 
 object Predef {
-  val crlf              = sufrin.regex.syntax.Seq[Char]("\u000D\u000A".map(sufrin.regex.syntax.Literal(_)))
-  val anyUnicodeLineEnd = sufrin.regex.syntax.Sat[Char]("\u000A\u000B\u000C\u000D\u0085\u2028\u2029".contains(_), "\\R")
-
+  
   def not(pred: Char => Boolean): (Char=>Boolean) = ((ch:Char) => !(pred(ch)))
   private val table = collection.immutable.HashMap[Char,CharClass](
     'd' -> new PredefCharClass(_.isDigit, "\\d"),
-    'D' -> new PredefCharClass(not(_.isDigit), "\\D")         { override val includeBoundary: Boolean = true},
+    'D' -> new PredefCharClass(not(_.isDigit), "\\D") ,
     'w' -> new PredefCharClass(_.isLetterOrDigit, "\\w"),
-    'W' -> new PredefCharClass(not(_.isLetterOrDigit), "\\W") { override val includeBoundary: Boolean = true},
+    'W' -> new PredefCharClass(not(_.isLetterOrDigit), "\\W"),
     's' -> new PredefCharClass(_.isSpaceChar, "\\s"),
-    'S' -> new PredefCharClass(not(_.isSpaceChar), "\\S")     { override val includeBoundary: Boolean = true},
-    'n' -> new CharLit('\n'),     // newline
-    't' -> new CharLit('\t'),     // tab
-    'r' -> new CharLit('\r'),     // cr
-    'a' -> new CharLit('\u0007'), // bel
-    'f' -> new CharLit('\u000C'), // ff
-    'e' -> new CharLit('\u001B')  // esc
+    'S' -> new PredefCharClass(not(_.isSpaceChar), "\\S"),
+    'n' -> new CharLit('\n',      "\\n"),     // newline
+    't' -> new CharLit('\t',      "\\t"),     // tab
+    'r' -> new CharLit('\r',      "\\r"),     // cr
+    'a' -> new CharLit('\u0007',  "\\u0007"), // bel
+    'f' -> new CharLit('\u000C',  "\\u000C"), // ff
+    'e' -> new CharLit('\u001B',  "\\u001B")  // esc
   )
   // locally { println(table) }
   def apply(ch: Char, orElse: => CharClass): CharClass =
       table.getOrElse(ch, orElse)
+
+  def apply(ch: Char): CharClass =
+      table.get(ch).get
+
+  /**
+   *  A few character classes have different implementations at the
+   *  top level of a `Regex` to their implementations within the
+   *  bodies of `CharClass`es. These are treated as syntactic sugar for
+   *  more complex `Regex`es.
+   *
+   *  For example, at the top level of a regex, the '''negated class'''
+   *  symbols stand both for the character classes they describe and for
+   *  either of the boundaries.
+   *  {{{
+   *    \D == [^\d] | ^ | $ == [\D] | ^ | $
+   *    \W == [^\w] | ^ | $ == [\W] | ^ | $
+   *    \S == [^\w] | ^ | $ == [\S] | ^ | $
+   *  }}}
+   *
+   *  This is simply a convenience, so that (for example) a pattern that
+   *  matches a ''word''  can be written -- more legibly -- as `\W(\w+)\W`
+   *  and match words appearing anywhere, including at the right hand or
+   *  the left-hand end of a search/match. The word itself is captured as
+   *  group 1.
+   *
+   *  This little module supports the implementation detail.
+   */
+  object Sugared {
+    import sufrin.regex.syntax._
+    
+    val anyAnchor: Tree[Char] = Alt[Char](Anchor(left=true), Anchor(left=false))
+
+    def negatedPredef(char: Char): Tree[Char] = {
+      val CharClass(sat, explain) = Predef(char)
+      Span(capture=false, reverse=false, Alt[Char](sufrin.regex.syntax.Sat(sat, explain), anyAnchor))
+    }
+
+    private def mkSat(char: Char, explain: String): sufrin.regex.syntax.Tree[Char] = {
+      sufrin.regex.syntax.Sat(_ == char, explain)
+    }
+
+    val crlf:               Tree[Char] = sufrin.regex.syntax.Seq[Char](List(mkSat('\r', "\\r"), mkSat('\n', "\\n")))
+    val anyUnicodeLineEnd:  Tree[Char] = sufrin.regex.syntax.Sat[Char]("\u000A\u000B\u000C\u000D\u0085\u2028\u2029".contains(_), "\\R")
+    val anyLineEnding:      Tree[Char] = Span(capture=false, reverse=false, Alt[Char](crlf, anyUnicodeLineEnd))
+  }
+  
+  //
+  // Sugared constructs: \\W, \\D, \\S, \\R, $$
+  //
+  val sugarW:    Tree[Char] = Sugared.negatedPredef('W')
+  val sugarD:    Tree[Char] = Sugared.negatedPredef('D')
+  val sugarS:    Tree[Char] = Sugared.negatedPredef('S')
+  val sugarR:    Tree[Char] = Sugared.anyLineEnding
+  val anyAnchor: Tree[Char] = Sugared.anyAnchor
+
 
 }
 
@@ -119,7 +170,7 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
         case ')' :: _                   => result(Ket)
         case '|' :: _                   => result(Bar)
         case '^' :: _                   => result(LeftAnchor)
-        case '$' :: '$' :: rest         => result(AnyAnchor, rest)
+        case '$' :: '$' :: rest         => result(Sugar(Predef.anyAnchor), rest)
         case '$' :: _                   => result(RightAnchor)
         case '.' :: _                   => result(Dot)
         case '*' :: '?' :: rest         => result(Star(true), rest)
@@ -129,15 +180,20 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
         case '+' :: _                   => result(Plus(false))
         case '?' :: _                   => result(Opt(false))
 
-        case '\\' :: 's'  :: rest       => result(Lit(' '), rest)
-        case '\\' :: 'R'  :: rest       => result(Sugar(Span(capture=false, reverse=false, Alt[Char](crlf, anyUnicodeLineEnd))), rest)
+        case '\\' :: 's'  :: rest       => result(Predef('s'), rest)
+        case '\\' :: 'R'  :: rest       => result(Sugar(Predef.sugarR), rest)
+        case '\\' :: 'W'  :: rest       => result(Sugar(Predef.sugarW), rest)
+        case '\\' :: 'D'  :: rest       => result(Sugar(Predef.sugarD), rest)
+        case '\\' :: 'S'  :: rest       => result(Sugar(Predef.sugarS), rest)
+
+
 
         case '\\' :: '\\' :: rest       => result(Lit('\\'), rest)
         case '\\' :: 'u'  :: a :: b :: c :: d :: rest if hexable (a,b,c,d) =>
               result(Lit(hexer(a,b,c,d).toChar), rest)
         case '\\' :: 'u'  :: rest =>
               throw SyntaxError(s"Invalid unicode escape at $position")
-        case '\\' :: ch   :: rest => result(Predef(ch, { new CharLit(ch) }), rest)
+        case '\\' :: ch   :: rest => result(Predef(ch, { new CharLit(ch, s"\\$ch") }), rest)
         case '['  :: rest =>
              val pos = position
              shift(rest)
@@ -192,7 +248,7 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
 
         // allow escapes in character classes
         case '\\' :: char :: rest =>
-          result(Predef(char, { new CharLit(char) }), rest)
+          result(Predef(char, { new CharLit(char, s"\\$char") }), rest)
 
         // negate the entire class that follows
         case '[' :: '^' :: rest =>

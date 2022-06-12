@@ -45,17 +45,13 @@ class Parser (val text: String, val tracing: Boolean = false)  {
         case Star(nonGreedy)         =>  push (sufrin.regex.syntax.Star(nonGreedy, pop()))
 
         // for simplicity we don't enforce the end of the sequence at which an anchor appears
-        // TODO: check during `toSeq`
         case LeftAnchor              =>  push (sufrin.regex.syntax.Anchor(left=true))
         case RightAnchor             =>  push (sufrin.regex.syntax.Anchor(left=false))
-        case AnyAnchor               =>  push (sufrin.regex.syntax.StartOrEnd())
 
         case Dot                     => push (sufrin.regex.syntax.Any())
         case Lit(char)               => push (Literal(char))
         case Sugar(tree)             => push(tree)
-
-        case charClass @ CharClass(sat, explain) =>
-             push (if (charClass.includeBoundary) new BoundarySat(sat, s"$explain") else Sat(sat, s"[$explain]"))
+        case CharClass(sat, explain) => push (Sat(sat, s"[$explain]"))
 
         case Bra(capture) =>
           val e = parseExpr()

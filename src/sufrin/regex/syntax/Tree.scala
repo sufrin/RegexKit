@@ -281,7 +281,7 @@ case class Anchor[T](left: Boolean) extends Tree[T] {
 
 }
 
-/** Matches only at an end */
+/** Matches only at the start or the end */
 case class StartOrEnd[T]() extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     program += machine.StartOrEnd
