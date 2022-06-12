@@ -1,16 +1,32 @@
 package sufrin.regex
 
 object TestKit {
+
+  /** Uniform way of showing test results */
+  implicit class Showable(a: Any) {
+    def show(): Unit =
+      a match {
+        case i: Iterable[Any] => println("("); for { o <- i } println(s" $o"); println(")")
+        case i: Iterator[Any] => println("("); for { o <- i } println(s" $o"); println(")")
+        case _                => println(a)
+      }
+  }
+
+  /**
+   *  Evaluates the `thunk` and returns the result paired with
+   *  the elapsed time in nanoseconds.
+   */
+  def timing[A](thunk: => A): (A, Long) = {
+    val start = System.nanoTime()
+    val r   = thunk
+    val end = System.nanoTime()
+    val s   = end-start
+    (r, s)
+  }
+
   import sufrin.regex.machine._
   import sufrin.regex.syntax._
   import scala.language.postfixOps
-
-  val word   = syntax.Sat((c: Char) => ('a'<=c) && ('z'>=c) , "\\w")
-  val unWord = syntax.Sat((c: Char) => ! ('a'<=c) || ! ('z'>=c) , "\\W")
-
-  implicit class Title(s: String) {
-    def *** : Unit = println(s"======== $s")
-  }
 
   var result: Option[Match[Char]] = None
 
@@ -96,5 +112,29 @@ object TestKit {
     }
   }
 
+  val text = """Et licet quocumque oculos flexeris feminas adfatim multas spectare cirratas, quibus, si nupsissent, per aetatem ter iam
+               |nixus poterat suppetere liberorum, ad usque taedium pedibus pavimenta tergentes iactari volucriter gyris, dum exprimunt innumera
+               |simulacra, quae finxere fabulae theatrales.  Haec subinde Constantius audiens et quaedam referente Thalassio doctus, quem eum odisse
+               |iam conpererat lege communi, scribens ad Caesarem blandius adiumenta paulatim illi subtraxit, sollicitari se simulans ne, uti est militare
+               |otium fere tumultuosum, in eius perniciem conspiraret, solisque scholis iussit esse contentum palatinis et protectorum cum Scutariis et
+               |Gentilibus, et mandabat Domitiano, ex comite largitionum, praefecto ut cum in Syriam venerit, Gallum, quem crebro acciverat, ad Italiam
+               |properare blande hortaretur et verecunde. Sed si ille hac tam eximia fortuna propter utilitatem rei publicae frui non properat, ut
+               |omnia illa conficiat, quid ego, senator, facere debeo, quem, etiamsi ille aliud vellet, rei publicae consulere oporteret? Et licet
+               |quocumque oculos flexeris feminas adfatim multas spectare cirratas, quibus, si nupsissent, per aetatem ter iam nixus poterat suppetere
+               |liberorum, ad usque taedium pedibus pavimenta tergentes iactari volucriter gyris, dum exprimunt innumera simulacra, quae finxere fabulae
+               |theatrales.  Haec subinde Constantius audiens et quaedam referente Thalassio doctus, quem eum odisse iam conpererat lege communi,
+               |scribens ad Caesarem blandius adiumenta paulatim illi subtraxit, sollicitari se simulans ne, uti est militare otium fere tumultuosum, in
+               |eius perniciem conspiraret, solisque scholis iussit esse contentum palatinis et protectorum cum Scutariis et Gentilibus, et mandabat
+               |Domitiano, ex comite largitionum, praefecto ut cum in Syriam venerit, Gallum, quem crebro acciverat, ad Italiam properare blande
+               |hortaretur et verecunde.  Sed si ille hac tam eximia fortuna propter utilitatem rei publicae frui non properat, ut omnia illa
+               |conficiat, quid ego, senator, facere debeo, quem, etiamsi ille aliud vellet, rei publicae consulere oporteret? Et licet quocumque oculos
+               |flexeris feminas adfatim multas spectare cirratas, quibus, si nupsissent, per aetatem ter iam nixus poterat suppetere liberorum, ad usque
+               |taedium pedibus pavimenta tergentes iactari volucriter gyris, dum exprimunt innumera simulacra, quae finxere fabulae theatrales. Haec
+               |subinde Constantius audiens et quaedam referente Thalassio doctus, quem eum odisse iam conpererat lege communi, scribens ad Caesarem
+               |blandius adiumenta paulatim illi subtraxit, sollicitari se simulans ne, uti est militare otium fere tumultuosum, in eius perniciem
+               |conspiraret, solisque scholis iussit esse contentum palatinis et protectorum cum Scutariis et Gentilibus, et mandabat Domitiano, ex comite
+               |largitionum, praefecto ut cum in Syriam venerit, Gallum, quem crebro acciverat, ad Italiam properare blande hortaretur et
+               |verecunde.  Sed si ille hac tam eximia fortuna propter utilitatem rei publicae frui non properat, ut omnia illa conficiat, quid ego,
+               |senator, facere debeo, quem, etiamsi ille aliud vellet, rei publicae consulere oporteret.""".stripMargin
 
 }

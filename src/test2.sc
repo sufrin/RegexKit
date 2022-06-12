@@ -1,15 +1,9 @@
-import sufrin.regex.Regex
 import sufrin.regex.Regex.StringMatch
+import sufrin.regex.{Regex, TestKit}
+import TestKit._
 
 
-implicit class Showable(a: Any) {
-  def show(): Unit =
-    a match {
-      case i: Iterable[Any] => println("("); for { o <- i } println(s" $o"); println(")")
-      case i: Iterator[Any] => println("("); for { o <- i } println(s" $o"); println(")")
-      case _                => println(a)
-    }
-}
+
 
 val intPat = Regex("""(\d+)""")
 intPat.suffixes("1234567", 0, 7)
@@ -68,27 +62,15 @@ urlPat.allSuffixes("http://www.sputum.com/some/other/url/path/ span://foo.bar/x/
 (wordPat allPrefixes " ====    foobaz is best for you") . show
 
 
-wordPat.allPrefixes("any blood my friends") . show
+wordPat.allPrefixes(" the rain. ") . map {
+  case StringMatch(_, s) => s
+  case other => s"---$other---"
+} . show
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+(wordPat.allPrefixes(TestKit.text)) . map {
+  case StringMatch(_, s) => s
+  case other => s"---$other---"
+} . show
 
 
 
