@@ -12,21 +12,30 @@ object Util {
 
   def isSingleton(obj: Any): Boolean =
     obj match {
-      case prod : Product => prod.productArity==1 && isPrim(prod.productElement(0))
-      case _              => false
+      case prod : Product            => prod.productArity==1 && isPrim(prod.productElement(0))
+      case _                         => false
     }
 
   def pprint(obj: Any, depth: Int = 0, paramName: Option[String] = None): Unit = {
-    val indent = ("\u2502 ") * depth + "\u2514\u2500"
+    val indent =("  ") * (depth) + /*("\u2502 ") +*/ "\u2514\u2500"
     val prettyName = paramName.fold("")(x => s"$x: ") // name: or ""
 
-    val ptype = obj match {
-      case _:   Iterable[Any] =>
-      case obj: Product       => obj.productPrefix
-      case _                  => obj.toString
+    val prettyVal = obj match {
+      case i : Iterable[Any]            => "..."
+      case p : Product                  => p.productPrefix
+      case _ : Function9[Any, Any, Any, Any, Any, Any, Any, Any, Any, Any]
+      |    _ : Function8[Any, Any, Any, Any, Any, Any, Any, Any, Any]
+      |    _ : Function7[Any, Any, Any, Any, Any, Any, Any, Any]
+      |    _ : Function6[Any, Any, Any, Any, Any, Any, Any]
+      |    _ : Function5[Any, Any, Any, Any, Any, Any]
+      |    _ : Function4[Any, Any, Any, Any, Any]
+      |    _ : Function3[Any, Any, Any, Any]
+      |    _ : Function2[Any, Any, Any]
+      |    _ : Function1[Any, Any]       => "<fun>"
+      case _                             => obj.toString
     }
 
-    print(s"$indent$prettyName$ptype")
+    print(s"$indent$prettyName$prettyVal")
     if (!isSingleton(obj)) println()
 
     obj match {
