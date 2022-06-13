@@ -36,7 +36,7 @@ trait Tree[T]  {
     builder.toProgram
   }
 
-  def prettyPrint: Unit = sufrin.regex.Util.pprint(this)
+  def prettyPrint: Unit = sufrin.regex.PrettyPrint.prettyPrint(this)
 }
 
 case class Any[T]() extends Tree[T] {

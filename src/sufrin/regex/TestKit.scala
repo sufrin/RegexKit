@@ -47,8 +47,8 @@ object TestKit {
     }
     if (trace.nonEmpty) println(s"$label ($subject) ${pat.source}")
     val compiled = pat.compile(reverse=false, showCode)
-    if (showTree) Util.pprint(pat)
-    if (showReversed) Util.pprint(pat.reversed)
+    if (showTree) PrettyPrint.prettyPrint(pat)
+    if (showReversed) PrettyPrint.prettyPrint(pat.reversed)
 
     if (doRun) {
       val state  = new State[Char](compiled, Groups.empty, subject, start, subject.length, traceSteps)

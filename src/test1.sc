@@ -124,7 +124,7 @@ if (false) {
 
 /* Repetition of a nilpotent RE
 //search("@cs", "fooabbggggggcde")("(x? | a?b)+bg*?cd")
-//pprint(parse("(x? | a?b)+bg*?cd"))
+//prettyPrint(parse("(x? | a?b)+bg*?cd"))
 (parse("(x? | a?b)+bg*?cd")).compile(true)
 */
 // PROBLEMATIC
