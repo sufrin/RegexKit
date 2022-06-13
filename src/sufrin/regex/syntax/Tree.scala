@@ -6,13 +6,20 @@ object Tree {
   implicit class SyntaxTree(val string: String) extends AnyVal {
     def ! : Tree[Char] = Seq(string.map(Literal(_)))
   }
+
   def ||[T](bs: Tree[T]*): Tree[T] = Branch(bs)
+
 }
 
 trait Tree[T]  {
   def compile(groups: Int, program: Builder[T]): Int
   def reversed: Tree[T]
   def source: String = this.toString
+
+  def canStartWith(t: T): Boolean
+
+  /** true if this re ''can'' generate the empty sequence */
+  val nilPotent: Boolean = false
 
   def | (r: Tree[T]): Tree[T]   = Alt(this, r)
   def ++(r: Tree[T]): Tree[T]   = Seq(List(this, r))
@@ -46,8 +53,9 @@ case class Any[T]() extends Tree[T] {
   }
 
   def reversed: Tree[T] = this
-
   override def source: String = "."
+
+  def canStartWith(t:T) = true
 }
 
 case class Literal[T](v: T) extends Tree[T] {
@@ -57,6 +65,8 @@ case class Literal[T](v: T) extends Tree[T] {
   }
   def reversed: Tree[T] = this
   override def source: String = v.toString
+
+  def canStartWith(t:T): Boolean = v==t
 }
 
 case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
@@ -66,15 +76,9 @@ case class Sat[T](sat: T => Boolean, explain: String) extends Tree[T] {
   }
   def reversed: Tree[T] = this
   override def source: String = s"$explain"
-}
 
-/** Some built-in character classes with negative interpretations can helpfully be
- * treated as syntactic sugar for an alternation with the ''right anchor''
- * symbol; and the details are dealt with here. For example `\W` is translated
- * into the (non-capturing) group `(?: [^\w]|$ )`
- */
-class BoundarySat[T](sat: T => Boolean, explain: String) extends
-      Span(capture=false, reverse=false, Alt[T](Sat(sat, explain), StartOrEnd()))
+  def canStartWith(t:T): Boolean = sat(t)
+}
 
 case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
@@ -85,6 +89,27 @@ case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
   lazy val  reversed: Tree[T] = Seq(seq.reverse.map(_.reversed))
   override def source: String = seq.map(_.source).mkString("","","")
   override def ++(r: Tree[T]): Tree[T] = Seq(seq appended r)
+
+  override val nilPotent: Boolean = seq.forall(_.nilPotent)
+
+  def canStartWith(t:T) = possible(t)
+
+  /** precomputed predicate, evaluated once only */
+  lazy val possible: T => Boolean = {
+    val nilPotents = seq.takeWhile(_.nilPotent).toList
+    val rest       = seq.dropWhile(_.nilPotent)
+    if (nilPotents.isEmpty)
+       seq.head.canStartWith(_)
+    else {
+      val consider: List[Tree[T]] =
+        if (rest.isEmpty)
+          nilPotents
+        else
+          rest.head :: nilPotents
+      consider.map { case t: Tree[T] => t.canStartWith(_) } .
+               reduce { (p1: T => Boolean, p2: T => Boolean) => { (t: T) => p1(t) || p2(t) } }
+    }
+  }
 
 }
 
@@ -105,6 +130,8 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
   lazy val  reversed: Tree[T] = Alt(l.reversed, r.reversed)
 
   override def source: String = s"${l.source} | ${r.source}"
+  def canStartWith(t:T): Boolean  = l.canStartWith(t) || r.canStartWith(t)
+  override val nilPotent: Boolean = l.nilPotent || r.nilPotent
 }
 
 /**
@@ -151,6 +178,8 @@ case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T
 
   override def source: String = branches.map(_.source).mkString("||(", ", ", ")")
 
+  override def canStartWith(t: T): Boolean = true // not interesting yet at the top level
+
 }
 
 case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T]) extends Tree[T] {
@@ -168,6 +197,10 @@ case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T
 
   lazy val reversed: Tree[T] = Span(capture, !reverse, expr.reversed)
 
+  override val nilPotent: Boolean = expr.nilPotent
+
+  override def canStartWith(t: T): Boolean = expr.canStartWith(t)
+
   override def source: String = if (capture) s"(${expr.source})" else s"(?:${expr.source})"
 }
 
@@ -175,9 +208,11 @@ case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T
  *  Represents: `parseExpr?`` and the non-greedy `parseExpr??`
  *
  * {{{
+ *   guard(this.canStartWith, lSkip)
  *   Fork(next, lEnd)
  *   next: parseExpr
  *   lEnd:
+ *   lSkip:
  * }}}
  *
  *
@@ -188,7 +223,7 @@ case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T
  */
 case class Opt[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
-    val next, lEnd = machine.Lab[T](-1)
+    val next, lEnd, lSkip = machine.Lab[T](-1)
     program += machine.Fork(if (short) List(next, lEnd) else List(lEnd, next))
     program.define(next)
     val groups_ = expr.compile(groups, program)
@@ -197,6 +232,10 @@ case class Opt[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
   }
 
   lazy val reversed: Tree[T] = Opt(short, expr.reversed)
+
+  override val nilPotent: Boolean = true
+
+  override def canStartWith(t: T): Boolean = expr.canStartWith(t)
 
   override def source: String = s"${expr.source}?"+(if (short) "?" else "")
 
@@ -235,6 +274,10 @@ case class Star[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
 
   override def source: String = s"${expr.source}*"+(if (short) "?" else "")
 
+  override val nilPotent: Boolean = true
+
+  def canStartWith(t: T): Boolean = expr.canStartWith(t)
+
 }
 
 /**
@@ -266,6 +309,9 @@ case class Plus[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
 
   override def source: String = s"${expr.source}+"+(if (short) "?" else "")
 
+  override val nilPotent: Boolean = expr.nilPotent
+
+  def canStartWith(t: T): Boolean = expr.canStartWith(t)
 }
 
 /** A parseable anchor */
@@ -276,23 +322,10 @@ case class Anchor[T](left: Boolean) extends Tree[T] {
   }
 
   lazy val  reversed: Tree[T] = Anchor(!left)
-
   override def source: String = if (left) "^" else "$"
-
+  def canStartWith(t: T): Boolean = true // Not sure
 }
 
-/** Matches only at the start or the end */
-case class StartOrEnd[T]() extends Tree[T] {
-  def compile(groups: Int, program: Builder[T]): Int = {
-    program += machine.StartOrEnd
-    groups
-  }
-
-  lazy val  reversed: Tree[T] = this
-
-  override def source: String = "$$"
-
-}
 
 /** An expression combinator for use in the DSL */
 case class AnchorStart[T](expr: Tree[T]) extends Tree[T] {
@@ -302,8 +335,10 @@ case class AnchorStart[T](expr: Tree[T]) extends Tree[T] {
   }
 
   lazy val  reversed: Tree[T] = AnchorEnd(expr.reversed)
-
   override def source: String = s"^${expr.source}"
+  def canStartWith(t: T): Boolean = expr.canStartWith(t) // Not sure
+  override val nilPotent: Boolean = expr.nilPotent
+
 }
 
 /** Matches at the start of the examined sequence */
@@ -316,6 +351,7 @@ case class AnchorEnd[T](expr: Tree[T]) extends Tree[T] {
 
   lazy val  reversed: Tree[T] = AnchorStart(expr.reversed)
   override def source: String = s"${expr.source}$$"
-
+  def canStartWith(t: T): Boolean = expr.canStartWith(t) // Not sure
+  override val nilPotent: Boolean = expr.nilPotent
 }
 

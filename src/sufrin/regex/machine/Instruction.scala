@@ -57,7 +57,7 @@ case class Sat[T](sat: T => Boolean, explain: String)  extends Instruction[T]{
  */
 case class Guard[T](sat: T => Boolean, label: Lab[T], explain: String)  extends Instruction[T]{
   def execute(start: Int, end: Int, sourcePos: Int, in: T, pc: Int, groups: Groups): Result =
-    if (sat(in)) Schedule(label.loc, groups) else Next(groups)
+    if (!sat(in)) Schedule(label.loc, groups) else Next(groups)
   override def toString: String = explain
 }
 

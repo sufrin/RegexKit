@@ -4,21 +4,28 @@
  * expressions.
  */
 
-import sufrin.regex.Regex
+import sufrin.regex._
+import TestKit._
 
-implicit class Showable(a: Any) {
-  def show(): Unit =
-    a match {
-      case i: Iterable[Any] => println("("); for { o <- i } println(s" $o"); println(")")
-      case i: Iterator[Any] => println("("); for { o <- i } println(s" $o"); println(")")
-      case _                => println(a)
-    }
+def testCan(pat: String, s: String): Unit = {
+  val t = Regex(pat).tree
+  for { c <- s } if (t.canStartWith(c))
+    print(s"$c ")
+  println()
+  t.prettyPrint
 }
 
 val exp0 = Regex("""((a|b)*)((bc*?)*)((cd|de*)*)(e*)""")
 val exp1 = Regex("""((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
 exp0.matches("abababccccbccdcdeee") . show()
 exp1.matches("abababccccbccdcdeee") . show()
+
+testCan("""(a?b?cd | xyz)""", "abcdefgpqrstuvxyz12345")
+testCan("""(xyz)""", "abcdefgpqrstuvxyz12345")
+
+
+
+
 
 val numPat = Regex("""\d+(( \.\d+[eE]-?\d+ | [eE]-?\d+ | \.\d+ )??)""")
 numPat.matches("1234.567e6") . show()
@@ -45,4 +52,3 @@ val revPatPlus = Regex(realPatStar.tree.reversed, false, false)
 revPatStar.prefixes("1234.567e6".reverse) . show()
 //revPatPlus.tree == realPatStar.tree.reversed
 revPatPlus.prefixes("1234.567e6".reverse) . show()
-
