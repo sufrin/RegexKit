@@ -61,12 +61,17 @@ object PrettyPrint {
     def prettyPrint(): Unit = PrettyPrint.prettyPrint(obj)
   }
 
-  /** User-defined classes can be made PrettyPrintable */
+  /**
+   *  All objects of all structured classes can present a
+   *  custom "face" to the pretty-printer.
+   */
   trait PrettyPrintable {
     /** The name of the class (or object)  */
     def prefix:  String
+
     /** The number of fields/elements of the object */
     def arity:   Int
+
     /** The `i`'th field/element of the object as a name-value pair */
     def field(i: Int): (String, Any) = ("?", "?")
 

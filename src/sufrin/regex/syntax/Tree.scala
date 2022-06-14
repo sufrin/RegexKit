@@ -70,7 +70,8 @@ case class Any[T]() extends Tree[T] {
 }
 
 /**
- *   Surrounds `?, *, +` constructions.
+ *   Surrounds `?` and `*` constructions, when the guard
+ *   optimization is on.
  */
 case class Guarded[T](expr: Tree[T]) extends Tree[T] with sufrin.regex.PrettyPrint.PrettyPrintable {
   override def prefix: String = "Guarded"
@@ -82,7 +83,7 @@ case class Guarded[T](expr: Tree[T]) extends Tree[T] with sufrin.regex.PrettyPri
 
   def reversed: Tree[T] = Guarded(expr.reversed)
 
-  override def source: String = s"${expr.source} (<=)"
+  override def source: String = s"${expr.source}$$$$$$"
 
   override val nilPotent: Boolean = expr.nilPotent
   val canStart: List[String] = expr.canStart

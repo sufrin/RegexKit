@@ -4,15 +4,20 @@ import TestKit._
 
 
 
-
-val intPat = Regex("""(\d+)""")
+val intPat = Regex("""(\d*\d)""", true)
+intPat.tree.prettyPrint
+val intPat1 = Regex("""(\d\d*)""", true)
+intPat1.tree.prettyPrint
 intPat.suffixes("1234567", 0, 7)
+intPat1.suffixes("1234567", 0, 7)
 intPat.suffixes("abc1234567")
 intPat.findSuffix("abc1234567qrstu")
 
 
-intPat.matches("1234567", 0)
-intPat.matches("1234567")
+
+
+intPat.matches("1234567", 3)
+intPat.matches("1234567", 3, 6)
 
 
 "*** Expecting None". show()

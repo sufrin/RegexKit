@@ -18,6 +18,7 @@ case object End extends Lexeme
 case class  Bra(capture: Boolean) extends Lexeme
 case object Ket extends Lexeme
 case object Bar extends Lexeme
+case object Guard       extends Lexeme
 case object LeftAnchor  extends Lexeme
 case object RightAnchor extends Lexeme
 case object Dot         extends Lexeme
@@ -170,6 +171,7 @@ class Lexer(val text: CharSequence, tracing: Boolean = false) extends Iterable[L
         case ')' :: _                   => result(Ket)
         case '|' :: _                   => result(Bar)
         case '^' :: _                   => result(LeftAnchor)
+        case '$' :: '$' :: '$' :: rest  => result(Guard, rest) // for experiments
         case '$' :: '$' :: rest         => result(Sugar(Predef.anyAnchor), rest)
         case '$' :: _                   => result(RightAnchor)
         case '.' :: _                   => result(Dot)
