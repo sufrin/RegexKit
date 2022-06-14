@@ -14,6 +14,7 @@ intPat.findSuffix("abc1234567qrstu")
 intPat.matches("1234567", 0)
 intPat.matches("1234567")
 
+
 "*** Expecting None". show()
 intPat.matches("a1234567a")      . show()
 intPat.findPrefix("a1234567a")   . show()
