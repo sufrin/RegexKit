@@ -110,6 +110,9 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
     for { theMatch <- state.run(reversed=false, search = false, trace) } yield StringMatch(theMatch)
   }
 
+  def forwardInstructions: String = (for { i<-0 until forwardCode.length } yield s"$i\t${forwardCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+  def reverseInstructions: String = (for { i<-0 until reverseCode.length } yield s"$i\t${reverseCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+
   /**
    * If the expression matches a prefix of {{{subject[from..to)}}} return `Some(theMatch)` otherwise return `None`
    */
