@@ -20,3 +20,5 @@ out/production/RegexKit/test2.sc
 out/production/RegexKit/testparse.sc
 out/production/RegexKit/testparse.sc
 out/production/RegexKit/test2.sc
+out/artifacts/regexkit.jar
+out/production/RegexKit/testbranched.sc
