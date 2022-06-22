@@ -46,8 +46,10 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
   /**
    *  Instructions are treated homogeneously. All receive the same context for their
-   *  execution: `program(pc).oneProgramStep(start, end, sourcePos, in, pc, groups)`.
-   *
+   *  execution at `program(pc)`, which is performed by:
+   *  {{{
+   *    oneProgramStep(start, end, sourcePos, in, pc, groups)
+   *  }}}
    *  This makes adding new kinds of instruction very straightforward -- but at the cost of
    *  needing an arbitrary input value to supply to the housekeeping instructions executed
    *  after the end of the input-proper has been reached.
@@ -59,30 +61,34 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  that terminated the program with a continuation of `Success`; otherwise it transforms the
    *  `Success` into a (successful) `Result`.
    *
-   *  In the first case it has scheduled any threads necessary to continuing the match
+   *  In the first case it has scheduled any threads needed to continue the match
    *  or search.
    *
-   *  '''NB:''' I gratefully acknowledge my colleague Mike Spivey's observation (based on
+   *  '''Important Note:''' I gratefully acknowledge my colleague Mike Spivey's observation (based on
    *  the 1965 Thompson paper) that an appropriate technique for /searching/ rather than
    *  /matching/ is to spawn another thread at the origin of the program whenever the machine
    *  is about to shift to consideration of the next character.
+   *  Although implemented here, the technique cannot be guaranteed to capture the content of
+   *  nested groups appropriately during a search; indeed it can only ever be relied upon
+   *  to find the end position of a match. One case in point is an expression of the form
+   *  `(R1)+R2` when `R2` is empty, or has a prefix that may match a prefix of `R1`.
    *
-   *  '''Important:''' although implemented here, the technique sometimes fails to capture the content of
-   *  nested groups appropriately during a search. One case in point is an expression of the form
-   *  {{{(R1)+R2}}} when {{{R2}}} is empty, or has a prefix that may match a prefix of {{{R1}}}
+   *  My judgment is that under most circumstances it is not worth trying to compose the above
+   *  technique to find the endpoint of a match with a quadratic "match backwards" (from the endpoint)
+   *  to capture groups accurately.
    */
-  def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result= {
+  def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result = {
     val continuation = program(pc).execute(start, end, logPos, in, pc, groups)
     if (this.traceSteps) println(s"$pc: ${program(pc)} ($logPos, '$in', $pc) = $continuation")
     continuation match {
         case Stop =>
-          // spawn a fresh fibre (see NB above)
+          // spawn a fresh fibre (see the important note above)
           if (searching && lastResult.isEmpty)
              pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
         case Next(groups) =>
           pending.addFibre(pc+1, { new Fibre[T](pc+1, groups) })
-          // spawn a fresh fibre (see NB above)
+          // spawn a fresh fibre (see the important note above)
           if (searching && lastResult.isEmpty)
             pending.addFibre(0, { new Fibre[T](0, Groups.empty) })
           None
@@ -188,7 +194,7 @@ object State {
   /**
    * When successful, a `experiment` yields a result consisting of a
    *  branch-number (if the compiled program was a top-level
-   *  `Branch`), together with the mapping from span indexes to
+   *  `Branched`), together with the mapping from span indexes to
    *  the spans of the subpatterns that have been matched.
    */
   type Result = Option[(Int, Groups)]
