@@ -49,7 +49,7 @@ class PredefCharClass (sat: Char => Boolean, explain: String) extends CharClass(
 /** a-z */
 class CharRange(start: Char, end: Char) extends CharClass(  (ch:Char) => (start <= ch && ch <= end), s"$start-$end")
 
-/** k */ */
+/** k */
 class CharLit(char: Char, explain: String) extends CharClass( _ == char , explain)
 
 /** All characters: identity of `&&` */
