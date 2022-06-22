@@ -1,12 +1,18 @@
 package sufrin.regex.machine
 
+/**
+ *   Instructions return continuations to the execution machinery that indicate what to do next.
+ */
 sealed trait Result { }
 
 case object Stop                                            extends Result // kill the executing thread
 case class Next(groups: Groups)                             extends Result // accept the current value and continue the executing thread
-case class Schedule(pc: Int, groups: Groups)                extends Result // current closure computation
-case class ScheduleMany(pcs: Seq[Int], groups: Groups)      extends Result // current closure computation
-case class Success(branch: Int, groups: Groups)             extends Result // which branch of the top-level alt
+case class Schedule(pc: Int, groups: Groups)                extends Result // schedule the instruction at the `pc`
+case class ScheduleMany(pcs: Seq[Int], groups: Groups)      extends Result // schedule the instructions at the `pcs`
+
+// the indicated top-level branch of a top-level `Branched` pattern succeeded.
+// `Branched` patterns are specialized forms used to construct lexer-like processors.
+case class Success(branch: Int, groups: Groups) extends Result
 
 
 case class Lab[T](var loc: Int)
