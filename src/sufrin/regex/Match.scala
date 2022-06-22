@@ -49,12 +49,12 @@ trait Match[T] {
    *
    * `toStrings(0)` is always the entire match.
    */
-  lazy val toStrings: Array[String] = {
+  lazy val toStrings: Seq[String] = {
     input match {
       case in: sufrin.regex.IndexedCharSeq =>
-        (for { (s, e) <- groups.spans } yield in.subSequence(s, e).toString).toArray
+        (for { (s, e) <- groups.spans } yield in.subSequence(s, e).toString).toSeq
       case other =>
-        Array()
+        Array.empty[String].toSeq
     }
   }
 
