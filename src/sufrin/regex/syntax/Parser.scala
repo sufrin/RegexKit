@@ -2,6 +2,8 @@ package sufrin.regex.syntax
 
 import sufrin.regex.syntax.lexer._
 
+import scala.annotation.nowarn
+
 
 class Parser (val text: String, val tracing: Boolean = false)  {
   lazy val tree: Tree[Char] = parseExpr()
@@ -25,8 +27,8 @@ class Parser (val text: String, val tracing: Boolean = false)  {
     // It would be natural to use a mutable stack here;
     // but the stock Scala stack behaves oddly
     var seq = List[Tree[Char]]()
-    @inline def pop(): Tree[Char]         = seq match { case h::t => seq = t; h}
-    @inline def push(t: Tree[Char]): Unit = seq = t :: seq
+    @nowarn @inline def pop(): Tree[Char]         = seq match { case h::t => seq = t; h}
+    @nowarn @inline def push(t: Tree[Char]): Unit = seq = t :: seq
     @inline def mkSeq() = {
       val e = seq match {
         case List(e) => e

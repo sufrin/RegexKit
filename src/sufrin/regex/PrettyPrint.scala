@@ -1,5 +1,7 @@
 package sufrin.regex
 
+import scala.annotation.nowarn
+
 /**
  *  A universal pretty-printer for structured/case-class/product objects.
  *
@@ -140,14 +142,15 @@ object PrettyPrint {
 
     val prettyName  = fieldName.fold("")(x => s"$x: ") // name: or ""
 
-    val prettyVal = obj match {
+    @nowarn("msg=non-variable") val prettyVal = obj match {
       case obj : PrettyPrintable              => obj.prefix
       case obj : Product if isPrimTuple(obj)  => obj.toString
       case obj : Seq[Any]                     => s"[#${obj.length}]"
       case _   : Iterable[Any]                => "..."
 
       case obj : Product => obj.productPrefix
-      case _ : Function9[Any, Any, Any, Any, Any, Any, Any, Any, Any, Any]
+      case _ : Function10[Any,Any, Any, Any, Any, Any, Any, Any, Any, Any, Any]
+      |    _ : Function9[Any,Any, Any, Any, Any, Any, Any, Any, Any, Any]
       |    _ : Function8[Any, Any, Any, Any, Any, Any, Any, Any, Any]
       |    _ : Function7[Any, Any, Any, Any, Any, Any, Any, Any]
       |    _ : Function6[Any, Any, Any, Any, Any, Any, Any]
@@ -159,7 +162,7 @@ object PrettyPrint {
       case _                             => obj.toString
     }
 
-    indentStack.foldRight(){ case (l, _) => print(l) } // indent stack is in reverse
+    indentStack.foldRight(()){ case (l, _) => print(l) } // indent stack is in reverse
     print(s"$fieldIndent$prettyName$prettyVal")
     if (!isSingleton(obj)) println()
 

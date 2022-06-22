@@ -1,6 +1,8 @@
 package sufrin.regex.machine
 import sufrin.regex.machine.Program.Program
 
+import scala.annotation.nowarn
+
 /**
  *  Represents the state of a single thread of a running recogniser.
  *  Two fibres running the same program are equal if they have the same `pc`.
@@ -21,7 +23,7 @@ case class Fibre[T](val pc: Int, groups: Groups) {
    *
    *  '''Returns:''' `this.pc==that.pc`
    */
-  override def equals(that: Any): Boolean =
+  @nowarn override def equals(that: Any): Boolean =
     that match {
       case f: Fibre[T] => pc == f.pc
       case that        => require(false, "$this == $that is a badly-typed equality"); false
