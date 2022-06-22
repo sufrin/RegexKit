@@ -6,16 +6,27 @@ import scala.language.postfixOps
 
 object Tree {
   implicit class SyntaxTree(val string: String) extends AnyVal {
+    /** Convenience method for constructing a `Tree[Char]` literal sequence. */
     def ! : Tree[Char] = Seq(string.map(Literal(_)))
   }
 
-  def ||[T](bs: Tree[T]*): Tree[T] = Branch(bs)
+  def ||[T](bs: Tree[T]*): Tree[T] = Branched(bs)
 
 }
 
+/**
+ *  Abstract syntax of regular expressions, accompanied by
+ *  utilities for compilation, reversal, etc.
+ *
+ */
 trait Tree[T]  {
+  /** Compiler for an individual `Tree` */
   def compile(groups: Int, program: Builder[T]): Int
+
+  /** The tree representing the expression that matches sentences in reverse. */
   def reversed: Tree[T]
+
+  /** The source text of the expression that gave rise to this tree */
   def source: String = this.toString
 
   /**  Can this expression start with `t`; taking into account nilpotent
@@ -24,13 +35,17 @@ trait Tree[T]  {
   def canStartWith(t: T): Boolean
 
   /**
-   * Literal explanations of the `canStartsWith` result
+   * Literal explanation of the `canStartWith` result
    */
   val canStart: List[String]
 
-  /** true if this re ''can'' generate the empty sequence */
+  /** true if this expression ''can'' generate the empty sequence */
   def nilPotent: Boolean = false
 
+  /**
+   *   Convenientce methods for composing expressions without
+   * parsing them.
+   */
   def | (r: Tree[T]): Tree[T]   = Alt(this, r)
   def ++(r: Tree[T]): Tree[T]   = Seq(List(this, r))
   def +   :  Tree[T]            = Plus[T](expr=this, short = false)
@@ -40,6 +55,7 @@ trait Tree[T]  {
   def *   : Tree[T]             = Star[T](expr=this, short = false)
   def *?  : Tree[T]             = Star[T](expr=this, short = true)
 
+  /** Compilation utility used within `Regex` */
   def compile(reverse: Boolean = false, showCode: Boolean = false): Program[T] = {
     val builder = new Builder[T]
     val (start, end) = (machine.Start[T](0), machine.End[T](0))
@@ -54,6 +70,63 @@ trait Tree[T]  {
   }
 
   def prettyPrint: Unit = sufrin.regex.PrettyPrint.prettyPrint(this)
+}
+
+/**
+ * A `Branched` is effectively a many-branched `Alt` suitable for
+ * use in components such as lexical scanners in which it
+ * is necessary to know exactly which branch matches, and in which
+ * the groups in each branch are addressed from 1.
+ *
+ * It cannot be nested within another Tree.
+ * {{{
+ * Start(0)
+ * Fork(L0, L1, ..., Ln)
+ *   L0: branches(0); End(0); Matched(0)
+ *   ...
+ *   Ln: branches(n); End(0); Matched(n)
+ * }}}
+ *
+ * Start/End are swapped when compiling the reversed scan.
+ */
+
+case class Branched[T](branches: collection.immutable.Seq[Tree[T]], reverse: Boolean = false) extends Tree[T] {
+    /**  No need to surround with `Start(0)` or `End(0)` */
+    override def compile(reverse: Boolean = false, showCode: Boolean = false): Program[T] = {
+      val builder = new Builder[T]
+      if (reverse) reversed.compile(0, builder) else this.compile(0, builder)
+      builder.toProgram
+    }
+
+    /** Compilation that respects the direction of the scan. */
+    def compile(groups: Int, program: Builder[T]): Int = {
+    val (start, end) = (machine.Start[T](0), machine.End[T](0))
+    val (ss, ee)     = if (reverse) (end, start) else (start, end)
+    val lStarts      = branches.map { (tree: Tree[T]) =>  machine.Lab[T](-1) }
+    var groups_      = groups
+    program  += ss
+    program  += machine.Fork(lStarts)
+
+    for { branch <- 0 until branches.length } {
+      program.define(lStarts(branch))
+      groups_ = groups_ max branches(branch).compile(0, program)
+      program  += ee
+      program  += machine.Matched(branch)
+    }
+    groups_
+  }
+
+  lazy val reversed: Tree[T] = Branched(branches.map(_.reversed), !reverse)
+
+  override def source: String = branches.map(_.source).mkString("||(", ", ", ")")
+
+  override def canStartWith(t: T): Boolean = true // not interesting yet at the top level
+
+  val canStart: List[String] = {
+    val starts = branches.map(_.canStart)
+    starts.foldRight(List.empty[String])(_++_)
+  }
+
 }
 
 case class Any[T]() extends Tree[T] {
@@ -193,58 +266,6 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
   val canStart: List[String] = l.canStart ++ r.canStart
 }
 
-/**
- * A `Branch` is effectively a many-branched `Alt` suitable for
- * use in components such as lexical scanners in which it
- * is necessary to know exactly which branch matches, and in which
- * the groups in each branch are addressed from 1.
- *
- * It cannot be nested within another Tree.
- * {{{
- * Save(0)
- * Fork(L0, L1, ..., Ln)
- *   L0: branches(0); Save(0); Matched(0)
- *   ...
- *   Ln: branches(n); Save(0); Matched(n)
- * }}}
- */
-
-case class Branch[T](branches: collection.immutable.Seq[Tree[T]]) extends Tree[T] {
-  def compile(groups: Int, program: Builder[T]): Int = {
-    val lStarts   = branches.map { (tree: Tree[T]) =>  machine.Lab[T](-1) }
-    var maxGroups = 1
-    program  += machine.Start(0)
-    program  += machine.Fork(lStarts)
-
-    for { branch <- 0 until branches.length } {
-      program.define(lStarts(branch))
-      maxGroups = maxGroups max branches(branch).compile(1, program)
-      program  += machine.End(0)
-      program  += machine.Matched(branch)
-    }
-
-    maxGroups
-  }
-
-  lazy val reversed: Tree[T] = Branch(branches.reverse.map(_.reversed))
-
-  override def compile(reversed: Boolean = false, showCode: Boolean = false): Program[T] = {
-    val builder = new Builder[T]
-    compile(0, builder)
-    if (showCode) for (i <- 0 until builder.length) println(s"$i:\t${builder(i)}")
-    builder.toProgram
-  }
-
-  override def source: String = branches.map(_.source).mkString("||(", ", ", ")")
-
-  override def canStartWith(t: T): Boolean = true // not interesting yet at the top level
-
-  val canStart: List[String] = {
-    val starts = branches.map(_.canStart)
-    starts.foldRight(List.empty[String])(_++_)
-  }
-
-}
 
 case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T]) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
