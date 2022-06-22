@@ -27,43 +27,42 @@ case class  Plus(nonGreedy: Boolean) extends Lexeme
 case class  Opt (nonGreedy: Boolean) extends Lexeme
 case class  Lit(char: Char)          extends Lexeme
 case class  Sugar(tree: Tree[Char])  extends Lexeme
-case object ERROR                    extends Lexeme
-
+/**
+ *  Character classes expressed as `[...]` expressions are implemented as `Char` predicates, with human-readable `explain` fields
+ *  that provide a handle on their source text.
+ */
 case class  CharClass(sat: Char => Boolean, explain: String) extends Lexeme {
-
   def not: CharClass = CharClass(Predef.not(sat), s"^$explain")
-
   def &&(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) && that.sat(ch), s"$explain&&[${that.explain}]")
-
   def ||(that: CharClass): CharClass = CharClass( (ch: Char) => this.sat(ch) || that.sat(ch), s"$explain${that.explain}")
-
   override def toString: String = s"[$explain]"
-
-  /** True when this class is predefined and should include a
-   * right boundary.
-   *
-   * For example, \D matches non-digit positions including the end of the
-   * subject text: in effect {{{([^d]|$|^)}}}
-   */
-  val includeBoundary: Boolean = false
 }
 
+/**
+ *  Inbuilt character classes denoted by (eg `\D`, `\d`, etc) are implemented as `Char` predicates,
+ *  and use their denoter as explanation.
+ */
 class PredefCharClass (sat: Char => Boolean, explain: String) extends CharClass(sat, explain) {
   override def toString: String = s"$explain"
 }
 
+/** a-z */
 class CharRange(start: Char, end: Char) extends CharClass(  (ch:Char) => (start <= ch && ch <= end), s"$start-$end")
 
+/** k */ */
 class CharLit(char: Char, explain: String) extends CharClass( _ == char , explain)
 
-object UnitClass extends CharClass(  (_ : Char) => true, "") {
+/** All characters: identity of `&&` */
+object ALLCHARACTERS extends CharClass((_ : Char) => true, "") {
   override def &&(that: CharClass): CharClass = that
 }
 
-object EMPTY extends CharClass((_ : Char) => false, "") {
+/** No characters: identity of `||` */
+object NOCHARACTERS extends CharClass((_ : Char) => false, "") {
   override def ||(that: CharClass): CharClass = that
 }
 
+/** Mapping to the predefined character classes and literals from their denoting letters. */
 object Predef {
   
   def not(pred: Char => Boolean): (Char=>Boolean) = ((ch:Char) => !(pred(ch)))
@@ -130,9 +129,9 @@ object Predef {
     val anyLineEnding:      Tree[Char] = Span(capture=false, reverse=false, Alt[Char](crlf, anyUnicodeLineEnd))
   }
   
-  //
-  // Sugared constructs: \\W, \\D, \\S, \\R, $$
-  //
+  /**
+   * Sugared constructs denoted by: \W, \D, \S, \R, $$
+   */
   val sugarW:    Tree[Char] = Sugared.negatedPredef('W')
   val sugarD:    Tree[Char] = Sugared.negatedPredef('D')
   val sugarS:    Tree[Char] = Sugared.negatedPredef('S')
