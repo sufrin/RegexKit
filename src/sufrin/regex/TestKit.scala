@@ -28,15 +28,21 @@ object TestKit {
   import sufrin.regex.syntax._
   import scala.language.postfixOps
 
+  case class Source(pat: Tree[Char], showCompiled: Boolean) {
+    lazy val compiled = pat.compile(reverse=false, showCompiled)
+  }
+
+
   var result: Option[Match[Char]] = None
 
-  def experiment(trace: String = "", label: String, search: Boolean = false, subject: String, start: Int = 0)(pat: Tree[Char]): Unit = {
+  def experiment(trace: String = "", label: String, search: Boolean = false, subject: String, start: Int = 0)(pat: Source): Unit = {
     var showCode      = false
     var showTree      = false
     var showReversed  = false
     var traceSteps    = false
     var tracePos      = false
     var doRun         = true
+    var noSubject     = false
     for (c <- trace.toLowerCase()) c match {
       case 'c' => showCode = true
       case 's' => traceSteps = true
@@ -44,16 +50,17 @@ object TestKit {
       case '-' => doRun = false
       case 't' => showTree=true
       case 'r' => showReversed=true
+      case 'n' => noSubject=false
     }
-    if (trace.nonEmpty) println(s"$label ($subject) ${pat.source}")
-    val compiled = pat.compile(reverse=false, showCode)
+    if (trace.nonEmpty) println(s"$label ($subject) ${pat.pat}")
+    val compiled = pat.compiled
     if (showTree) PrettyPrint.prettyPrint(pat)
-    if (showReversed) PrettyPrint.prettyPrint(pat.reversed)
+    if (showReversed) PrettyPrint.prettyPrint(pat.pat.reversed)
 
     if (doRun) {
       val state  = new State[Char](compiled, Groups.empty, subject, start, subject.length, traceSteps)
       result = state.run(reversed=false, search, tracePos)
-      for { r <- result} println(s"$label ($subject) ${pat.source}\n=$r ")
+      for { r <- result} println(s"$label (${if (noSubject) "" else subject}) ${pat.pat}\n=$r ")
     }
   }
 
@@ -61,13 +68,14 @@ object TestKit {
 
   def search(trace: String = "", subject: String)(pat: String): Unit = {
     val tree = new Parser(pat).tree
-    experiment(trace, "search", search=true, subject)(tree)
+    experiment(trace, "search", search=true, subject)(Source(tree, trace contains 'c'))
   }
 
   def starts(trace: String = "", subject: String)(pat: String): Unit = {
     val tree = new Parser(pat).tree
-    experiment(trace, "starts", search=false, subject)(tree)
+    experiment(trace, "starts", search=false, subject)(Source(tree, trace contains 'c'))
   }
+
 
 
   /** Quadratic findPrefix, using sliding prefix experiment */
@@ -76,7 +84,7 @@ object TestKit {
     var start = 0
     result = None
     while (result.isEmpty && start<subject.length) {
-      experiment(trace, "findPrefix", search=false, subject, start)(tree)
+      experiment(trace, "findPrefix", search=false, subject, start)(Source(tree, trace contains 'c'))
       result match {
         case Some(matched) => start = matched.end
         case None          => start += 1
@@ -85,17 +93,26 @@ object TestKit {
   }
 
   /** Quadratic allPrefixes, using sliding prefix experiment */
-  def findAll(trace: String = "", subject: String)(pat: String): Unit =
-  { val tree = new Parser(pat).tree
-    var start = 0
+  def findAllTrees(trace: String = "", subject: String)(pat: Tree[Char]): Unit =
+  { var start = 0
     result = None
+    val patSource = Source(pat, trace contains 'c')
     while (start<subject.length) {
-      experiment(trace, "allPrefixes", search=false, subject, start)(tree)
+      experiment(trace, "allTrees", search=false, subject, start)(patSource)
       result match {
         case Some(matched) => start = matched.end
         case None          => start += 1
       }
     }
+  }
+
+  def findAll(trace: String = "", subject: String)(pat: String): Unit =
+      findAllTrees(trace, subject)(new Parser(pat).tree)
+
+  def findAllBranches(trace: String = "", subject: String)(pats: String*): Unit = {
+    val trees = for { pat <- pats }  yield  new Parser(pat).tree
+    val tree = Branched(trees)
+    findAllTrees(trace, subject)(tree)
   }
 
   def all(trace: String = "", subject: String)(pat: String): Unit = {
@@ -104,7 +121,7 @@ object TestKit {
     var start = 0
     var go    = true
     while (go) {
-      experiment(trace, "all", search=true, subject, start)(tree)
+      experiment(trace, "all", search=true, subject, start)(Source(tree, trace contains 'c'))
       result match {
         case Some(matched) => start = matched.end
         case None          => go = false
@@ -115,8 +132,8 @@ object TestKit {
   val text = """Et licet quocumque oculos flexeris feminas adfatim multas spectare cirratas, quibus, si nupsissent, per aetatem ter iam
                |nixus poterat suppetere liberorum, ad usque taedium pedibus pavimenta tergentes iactari volucriter gyris, dum exprimunt innumera
                |simulacra, quae finxere fabulae theatrales.  Haec subinde Constantius audiens et quaedam referente Thalassio doctus, quem eum odisse
-               |iam conpererat lege communi, scribens ad Caesarem blandius adiumenta paulatim illi subtraxit, sollicitari se simulans ne, uti est militare
-               |otium fere tumultuosum, in eius perniciem conspiraret, solisque scholis iussit esse contentum palatinis et protectorum cum Scutariis et
+               |iam conpererat lege communi, (scribens ad Caesarem) blandius adiumenta paulatim illi subtraxit, sollicitari se simulans ne, uti est militare
+               |otium fere tumultuosum, in (eius perniciem (conspiraret, solisque) scholis iussit esse contentum) palatinis et protectorum cum Scutariis et
                |Gentilibus, et mandabat Domitiano, ex comite largitionum, praefecto ut cum in Syriam venerit, Gallum, quem crebro acciverat, ad Italiam
                |properare blande hortaretur et verecunde. Sed si ille hac tam eximia fortuna propter utilitatem rei publicae frui non properat, ut
                |omnia illa conficiat, quid ego, senator, facere debeo, quem, etiamsi ille aliud vellet, rei publicae consulere oporteret? Et licet
