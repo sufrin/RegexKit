@@ -22,3 +22,6 @@ out/production/RegexKit/testparse.sc
 out/production/RegexKit/test2.sc
 out/artifacts/regexkit.jar
 out/production/RegexKit/testbranched.sc
+out/production/RegexKit/benchmarks.sc
+out/production/RegexKit/benchmarks.sc
+out/production/RegexKit/testsubstitute.sc

@@ -20,6 +20,18 @@ val succPat = wordPat
 val linePat = Regex ("""([^\n]+)\R""")
 val nlPat   = Regex("\\n")
 
+s"************* Warmup Benchmarks for successful searching ($succPat)".show()
+for { text <- Sample.texts } {
+  val (r, t) = timing(wordPat.allPrefixes(text).toList.size)
+  f"${text.length}%10d chars $r%5d matches ${t.toDouble/10E9}%10e" . show()
+}
+
+s"************* Warmup Benchmarks for successful backward searching ($succPat)".show()
+for { text <- Sample.texts } {
+  val (r, t) = timing(wordPat.allSuffixes(text).toList.size)
+  f"${text.length}%10d chars $r%5d matches ${t.toDouble/10E9}%10e" . show()
+}
+
 s"************* Benchmarks for successful searching ($succPat)".show()
 for { text <- Sample.texts } {
   val (r, t) = timing(wordPat.allPrefixes(text).toList.size)
