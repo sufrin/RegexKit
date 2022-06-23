@@ -36,6 +36,41 @@ object Regex {
 
     /** The entire matched substring */
     def matched: String = group(0)
+
+    @inline private def isDigit(c: Char): Boolean = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".contains(c)
+    @inline private def index(c: Char):   Int     =  c match {
+      case _ if '0' <= c && c <= '9' => c - '0'
+      case _ if 'A' <= c && c <= 'Z' => c - 'A'
+    }
+
+    /**
+     *  Replace all occurences of `"$$"`` in the template with `"$"`,
+     *  and all occurences of `$i` (when `i` is a digit)
+     *  with `group(i).getOrElse("")`. Uppercase roman letters `('A'..'Z')` are
+     *  interpreted as digits denoting numbers starting at `0` -- so up to 26 groups
+     *  can be substituted for.
+     */
+    def substitute(template: String): String = {
+      val length = template.length
+      val res = new StringBuilder(2 * length)
+      var i = 0
+      while (i < length) {
+        template(i) match {
+          case '$' if (i + 1 < length && template(i + 1) == '$') =>
+            res.addOne('$')
+            i += 2
+
+          case '$' if (i + 1 < length && isDigit(template(i + 1))) =>
+            res.append(groups(index(template(i + 1))))
+            i += 2
+
+          case ch =>
+            res.addOne(ch)
+            i += 1
+        }
+      }
+      res.toString()
+    }
   }
 
   object StringMatch {
@@ -65,7 +100,6 @@ object Regex {
    */
    def apply(tree: Tree[Char], showCode: Boolean, trace: Boolean): Regex =
        new Regex(tree, showCode, trace)
-
 
 }
 
