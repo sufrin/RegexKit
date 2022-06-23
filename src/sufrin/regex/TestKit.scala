@@ -35,7 +35,7 @@ object TestKit {
 
   var result: Option[Match[Char]] = None
 
-  def experiment(trace: String = "", label: String, search: Boolean = false, subject: String, start: Int = 0)(pat: Source): Unit = {
+  def experiment(trace: String, label: String, search: Boolean = false, subject: String, start: Int = 0)(pat: Source): Unit = {
     var showCode      = false
     var showTree      = false
     var showReversed  = false
@@ -50,9 +50,9 @@ object TestKit {
       case '-' => doRun = false
       case 't' => showTree=true
       case 'r' => showReversed=true
-      case 'n' => noSubject=false
+      case 'n' => noSubject=true
     }
-    if (trace.nonEmpty) println(s"$label ($subject) ${pat.pat}")
+    if (label.nonEmpty) println(s"$label: $subject")
     val compiled = pat.compiled
     if (showTree) PrettyPrint.prettyPrint(pat)
     if (showReversed) PrettyPrint.prettyPrint(pat.pat.reversed)
@@ -60,7 +60,7 @@ object TestKit {
     if (doRun) {
       val state  = new State[Char](compiled, Groups.empty, subject, start, subject.length, traceSteps)
       result = state.run(reversed=false, search, tracePos)
-      for { r <- result} println(s"$label (${if (noSubject) "" else subject}) ${pat.pat}\n=$r ")
+      for { r <- result} println(s" => $r ")
     }
   }
 
@@ -68,23 +68,23 @@ object TestKit {
 
   def search(trace: String = "", subject: String)(pat: String): Unit = {
     val tree = new Parser(pat).tree
-    experiment(trace, "search", search=true, subject)(Source(tree, trace contains 'c'))
+    experiment(trace, s"search: $pat", search=true, subject)(Source(tree, trace contains 'c'))
   }
 
   def starts(trace: String = "", subject: String)(pat: String): Unit = {
     val tree = new Parser(pat).tree
-    experiment(trace, "starts", search=false, subject)(Source(tree, trace contains 'c'))
+    experiment(trace, s"starts: $pat", search=false, subject)(Source(tree, trace contains 'c'))
   }
 
 
 
   /** Quadratic findPrefix, using sliding prefix experiment */
-  def find(trace: String = "", subject: String)(pat: String): Unit =
+  def find(trace: String, subject: String)(pat: String): Unit =
   { val tree = new Parser(pat).tree
     var start = 0
     result = None
     while (result.isEmpty && start<subject.length) {
-      experiment(trace, "findPrefix", search=false, subject, start)(Source(tree, trace contains 'c'))
+      experiment(trace, s"find: $pat", search=false, subject, start)(Source(tree, trace contains 'c'))
       result match {
         case Some(matched) => start = matched.end
         case None          => start += 1
@@ -93,12 +93,12 @@ object TestKit {
   }
 
   /** Quadratic allPrefixes, using sliding prefix experiment */
-  def findAllTrees(trace: String = "", subject: String)(pat: Tree[Char]): Unit =
+  def findAllTrees(trace: String, subject: String)(pat: Tree[Char]): Unit =
   { var start = 0
     result = None
     val patSource = Source(pat, trace contains 'c')
     while (start<subject.length) {
-      experiment(trace, "allTrees", search=false, subject, start)(patSource)
+      experiment(trace, "", search=false, subject, start)(patSource)
       result match {
         case Some(matched) => start = matched.end
         case None          => start += 1
@@ -106,22 +106,22 @@ object TestKit {
     }
   }
 
-  def findAll(trace: String = "", subject: String)(pat: String): Unit =
+  def findAll(trace: String, subject: String)(pat: String): Unit =
       findAllTrees(trace, subject)(new Parser(pat).tree)
 
-  def findAllBranches(trace: String = "", subject: String)(pats: String*): Unit = {
+  def findAllBranches(trace: String, subject: String)(pats: String*): Unit = {
     val trees = for { pat <- pats }  yield  new Parser(pat).tree
     val tree = Branched(trees)
     findAllTrees(trace, subject)(tree)
   }
 
-  def all(trace: String = "", subject: String)(pat: String): Unit = {
+  def all(trace: String, subject: String)(pat: String): Unit = {
     val tree = new Parser(pat).tree
     result    = None
     var start = 0
     var go    = true
     while (go) {
-      experiment(trace, "all", search=true, subject, start)(Source(tree, trace contains 'c'))
+      experiment(trace, s"all: $pat", search=true, subject, start)(Source(tree, trace contains 'c'))
       result match {
         case Some(matched) => start = matched.end
         case None          => go = false
