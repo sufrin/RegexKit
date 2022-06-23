@@ -10,18 +10,26 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
   private val l, r = new FibreSet(program)
 
   /**
-   *   Each `Fibre` represents a trace of an DFA recogniser for the expression from which
-   *   `program` was compiled.
+   *   Each `Fibre` represents a trace of an DFA recogniser -- for the expression from which
+   *   `program` was compiled -- that has consumed the sequence of inputs between
+   *   `startPos` and `sourcePos`
    *
-   *   The `current`` and `pending` `FibreSet`s each represent the state of an NDFA recogniser
-   *   that has consumed the sequence of input between `startPos` and `sourcePos`.
+   *   Each input is consumed by a major step in the algorithm, whose task is to compute
+   *   the next NDFA state.
    *
-   *   Each input is consumed by a major step in the algorithm, which is in two phases:
+   *   At the start of a major step, the `current` `FibreSet` represents the state of the NDFA
+   *   as a set of currently-active fibres. The `pending` `FibreSet` will be empty.
    *
-   *      1. a ''housekeeping'' phase in which all instructions except for
-   *      the matching instructions are executed.
+   *   During a major step, the current instruction of each active fibre is executed. This may
+   *   give rise to the scheduling of additional fibres and/or the scheduling of
+   *   the active fibre at its successor instruction.
    *
-   *      2. a substantive step, in which
+   *   The scheduling of a fibre is implemented by adding that fibre to the `pending` set,
+   *   unless a fibre at the same instruction is already present there.
+   *
+   *   A major step is complete when all the fibres of `current` have executed their
+   *   current instruction, or when a match result has been signalled by execution of
+   *   a `Matched` instruction.
    *
    */
   private var (current, pending) = (l, r)
@@ -36,12 +44,12 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
   /**
    *  The most recent successful result, if any, delivered by
-   *  a `Matched` instruction executed during a `experiment`.
+   *  a `Matched` instruction.
    *
    *  The matching algorithm keeps going after a successful
    *  match if there are prospects for a longer match.
    */
-  private var lastResult: Result= None
+  private var lastResult: Result = None
 
 
   /**
@@ -54,7 +62,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  needing an arbitrary input value to supply to the housekeeping instructions executed
    *  after the end of the input-proper has been reached.
    */
-  private var arbitraryInput: T = _
+  private var arbitraryInput: T = _   // implemented as null
 
   /**
    *  A program step returns `None` if the executed instruction wasn't a `Matched` instruction
@@ -133,7 +141,6 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         if (result.nonEmpty) lastResult = result
         // A candidate result appeared, but other threads are still active
         // and may match a longer sequence, so reject the candidate
-        // if (traceSteps) if (!search && result.nonEmpty && pending.nonEmpty && count != limit) println(s"        *** result: $result => None\n        current: $current")
         if (!search && result.nonEmpty && pending.nonEmpty && count != limit) result = None
         if (traceSteps) { println(s"        *** C: ${current.repString}, P: ${pending.repString}") }
       }
