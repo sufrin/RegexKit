@@ -1,5 +1,5 @@
 import sufrin.regex.Regex
-import sufrin.regex.TestKit._
+import TestKit._
 
 val pat = Regex("""(\w+)\.(\s+)(\w+)""")
 

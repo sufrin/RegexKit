@@ -1,4 +1,4 @@
-import sufrin.regex.TestKit._
+import TestKit._
 import sufrin.regex.Brackets
 
 val text = "foo(bar is ((best on thursday) for you) on ) thursday"

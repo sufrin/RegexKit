@@ -6,8 +6,8 @@
  */
 
 
-import sufrin.regex.{Regex, TestKit}
-import sufrin.regex.TestKit._
+import sufrin.regex.Regex
+import TestKit._
 
 "************* Benchmarks".show()
 object Sample {

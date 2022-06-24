@@ -12,7 +12,7 @@
  * BS: 10 June 2021
  */
 
-import sufrin.regex.TestKit._
+import TestKit._
 
 search("", "fooabbggggggcde")("(a?b)+bg*?cd")
 "starts with repeats, unprefixed and unsuffixed". show()

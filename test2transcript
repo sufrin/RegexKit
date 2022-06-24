@@ -1,0 +1,392 @@
+└─Span
+  └─capture: true
+  └─reverse: false
+  └─expr: Seq
+    └─seq: [#2]
+      └─Guarded
+      │ └─expr: Star
+      │ │ └─short: false
+      │ │ └─expr: Sat
+      │ │   └─sat: <fun>
+      │ │   └─explain: [\d]
+      │ └─canStart: [#1]
+      │   └─[\d]
+      └─Sat
+        └─sat: <fun>
+        └─explain: [\d]
+([\d]*$$$[\d])
+0	Start(0)
+1	Start(1)
+2	? => 6 (CanStart([\d]))
+3	 =>4 =>6
+4	[\d]
+5	-> 3
+6	[\d]
+7	End(1)
+8	End(0)
+9	Matched(-1)
+
+([\d]*$$$[\d])
+0	End(0)
+1	End(1)
+2	[\d]
+3	? => 7 (CanStart([\d]))
+4	 =>5 =>7
+5	[\d]
+6	-> 4
+7	Start(1)
+8	Start(0)
+9	Matched(-1)
+
+└─Span
+  └─capture: true
+  └─reverse: false
+  └─expr: Seq
+    └─seq: [#2]
+      └─Sat
+      │ └─sat: <fun>
+      │ └─explain: [\d]
+      └─Guarded
+        └─expr: Star
+        │ └─short: false
+        │ └─expr: Sat
+        │   └─sat: <fun>
+        │   └─explain: [\d]
+        └─canStart: [#1]
+          └─[\d]
+([\d][\d]*$$$)
+0	Start(0)
+1	Start(1)
+2	[\d]
+3	? => 7 (CanStart([\d]))
+4	 =>5 =>7
+5	[\d]
+6	-> 4
+7	End(1)
+8	End(0)
+9	Matched(-1)
+
+([\d][\d]*$$$)
+0	End(0)
+1	End(1)
+2	? => 6 (CanStart([\d]))
+3	 =>4 =>6
+4	[\d]
+5	-> 3
+6	[\d]
+7	Start(1)
+8	Start(0)
+9	Matched(-1)
+
+Suffixes (all expecting 1234567)
+Matches at various places/sizes
+*** Expecting 4567
+Some(StringMatch(4567,4567))
+*** Expecting 456
+Some(StringMatch(456,456))
+*** Expecting None
+None
+*** Expecting 1234567
+Some(StringMatch(1234567,1234567))
+SUBJECT: *****1234.567e-6a*****1234.567e-6a 23E-5  22.0 *****1234.567e-6a*****1234.567e-6a 23E-5  22.0 *****1234.567e-6a*****1234.567e-6a 23E-5  22.0 
+realPat.allPrefixes expecting 12 matches
+(
+ StringMatch(1234.567e)
+ StringMatch(1234.567e)
+ StringMatch(23E-5)
+ StringMatch(22.0)
+ StringMatch(1234.567e)
+ StringMatch(1234.567e)
+ StringMatch(23E-5)
+ StringMatch(22.0)
+ StringMatch(1234.567e)
+ StringMatch(1234.567e)
+ StringMatch(23E-5)
+ StringMatch(22.0)
+)
+realPat.allSuffixes expecting same 12 matches: FAILS
+(
+ StringMatch(567e-6)
+ StringMatch(567e-6)
+ StringMatch(23E-5)
+ StringMatch(567e-6)
+ StringMatch(567e-6)
+ StringMatch(23E-5)
+ StringMatch(567e-6)
+ StringMatch(567e-6)
+ StringMatch(23E-5)
+)
+[\d]+(?:[\.][\d]+([eE]-?$$$[\d]+)?$$$ | [eE]-?$$$[\d]+)
+0	End(0)
+1	 =>16 =>2
+2	? => 12 (CanStart([\d]))
+3	 =>12 =>4
+4	End(1)
+5	[\d]
+6	 =>5 =>7
+7	? => 10 (CanStart(-))
+8	 =>10 =>9
+9	Lit(-)
+10	[eE]
+11	Start(1)
+12	[\d]
+13	 =>12 =>14
+14	[\.]
+15	-> 22
+16	[\d]
+17	 =>16 =>18
+18	? => 21 (CanStart(-))
+19	 =>21 =>20
+20	Lit(-)
+21	[eE]
+22	[\d]
+23	 =>22 =>24
+24	Start(0)
+25	Matched(-1)
+
+└─Seq
+  └─seq: [#2]
+    └─Span
+    │ └─capture: false
+    │ └─reverse: true
+    │ └─expr: Alt
+    │   └─l: Seq
+    │   │ └─seq: [#3]
+    │   │   └─Guarded
+    │   │   │ └─expr: Opt
+    │   │   │ │ └─short: false
+    │   │   │ │ └─expr: Span
+    │   │   │ │   └─capture: true
+    │   │   │ │   └─reverse: true
+    │   │   │ │   └─expr: Seq
+    │   │   │ │     └─seq: [#3]
+    │   │   │ │       └─Plus
+    │   │   │ │       │ └─short: false
+    │   │   │ │       │ └─expr: Sat
+    │   │   │ │       │   └─sat: <fun>
+    │   │   │ │       │   └─explain: [\d]
+    │   │   │ │       └─Guarded
+    │   │   │ │       │ └─expr: Opt
+    │   │   │ │       │ │ └─short: false
+    │   │   │ │       │ │ └─expr: Literal(-)
+    │   │   │ │       │ └─canStart: [#1]
+    │   │   │ │       │   └─-
+    │   │   │ │       └─Sat
+    │   │   │ │         └─sat: <fun>
+    │   │   │ │         └─explain: [eE]
+    │   │   │ └─canStart: [#1]
+    │   │   │   └─[\d]
+    │   │   └─Plus
+    │   │   │ └─short: false
+    │   │   │ └─expr: Sat
+    │   │   │   └─sat: <fun>
+    │   │   │   └─explain: [\d]
+    │   │   └─Sat
+    │   │     └─sat: <fun>
+    │   │     └─explain: [\.]
+    │   └─r: Seq
+    │     └─seq: [#3]
+    │       └─Plus
+    │       │ └─short: false
+    │       │ └─expr: Sat
+    │       │   └─sat: <fun>
+    │       │   └─explain: [\d]
+    │       └─Guarded
+    │       │ └─expr: Opt
+    │       │ │ └─short: false
+    │       │ │ └─expr: Literal(-)
+    │       │ └─canStart: [#1]
+    │       │   └─-
+    │       └─Sat
+    │         └─sat: <fun>
+    │         └─explain: [eE]
+    └─Plus
+      └─short: false
+      └─expr: Sat
+        └─sat: <fun>
+        └─explain: [\d]
+└─Seq
+  └─seq: [#2]
+    └─Plus
+    │ └─short: false
+    │ └─expr: Sat
+    │   └─sat: <fun>
+    │   └─explain: [\d]
+    └─Span
+      └─capture: false
+      └─reverse: false
+      └─expr: Alt
+        └─l: Seq
+        │ └─seq: [#3]
+        │   └─Sat
+        │   │ └─sat: <fun>
+        │   │ └─explain: [\.]
+        │   └─Plus
+        │   │ └─short: false
+        │   │ └─expr: Sat
+        │   │   └─sat: <fun>
+        │   │   └─explain: [\d]
+        │   └─Guarded
+        │     └─expr: Opt
+        │     │ └─short: false
+        │     │ └─expr: Span
+        │     │   └─capture: true
+        │     │   └─reverse: false
+        │     │   └─expr: Seq
+        │     │     └─seq: [#3]
+        │     │       └─Sat
+        │     │       │ └─sat: <fun>
+        │     │       │ └─explain: [eE]
+        │     │       └─Guarded
+        │     │       │ └─expr: Opt
+        │     │       │ │ └─short: false
+        │     │       │ │ └─expr: Literal(-)
+        │     │       │ └─canStart: [#1]
+        │     │       │   └─-
+        │     │       └─Plus
+        │     │         └─short: false
+        │     │         └─expr: Sat
+        │     │           └─sat: <fun>
+        │     │           └─explain: [\d]
+        │     └─canStart: [#1]
+        │       └─[eE]
+        └─r: Seq
+          └─seq: [#3]
+            └─Sat
+            │ └─sat: <fun>
+            │ └─explain: [eE]
+            └─Guarded
+            │ └─expr: Opt
+            │ │ └─short: false
+            │ │ └─expr: Literal(-)
+            │ └─canStart: [#1]
+            │   └─-
+            └─Plus
+              └─short: false
+              └─expr: Sat
+                └─sat: <fun>
+                └─explain: [\d]
+(
+ (5,14)
+ (22,31)
+ (35,40)
+ (42,46)
+ (52,61)
+ (69,78)
+ (82,87)
+ (89,93)
+ (99,108)
+ (116,125)
+ (129,134)
+ (136,140)
+)
+(
+ (10,16)
+ (27,33)
+ (35,40)
+ (57,63)
+ (74,80)
+ (82,87)
+ (104,110)
+ (121,127)
+ (129,134)
+)
+*************** WORDS ******************
+Some(StringMatch(foobaz is best for you))
+Some(StringMatch(foobaz is best for you))
+(
+ StringMatch(xyzzy ,xyzzy)
+ StringMatch(fiddle ,fiddle)
+ StringMatch(dedee ,dedee)
+)
+(
+ StringMatch(dedee ,dedee)
+ StringMatch(fiddle ,fiddle)
+ StringMatch(xyzzy ,xyzzy)
+)
+URL pattern: problems with reverse scanning?
+URLSubject: http://www.sputum.com/some/other/url/path/ //ficity.helps span://foo.bar/x/y //wiggle.wogle/foo/ bar
+(([\w]+):)?$$$(//(?:[.\w]+/?$$$)+)
+0	End(0)
+1	End(1)
+2	? => 5 (CanStart(/))
+3	 =>5 =>4
+4	Lit(/)
+5	[.\w]
+6	 =>5 =>7
+7	 =>2 =>8
+8	Lit(/)
+9	Lit(/)
+10	Start(1)
+11	? => 20 (CanStart(:))
+12	 =>20 =>13
+13	End(2)
+14	Lit(:)
+15	End(3)
+16	[\w]
+17	 =>16 =>18
+18	Start(3)
+19	Start(2)
+20	Start(0)
+21	Matched(-1)
+
+└─Seq
+  └─seq: [#2]
+    └─Span
+    │ └─capture: true
+    │ └─reverse: true
+    │ └─expr: Seq
+    │   └─seq: [#3]
+    │     └─Plus
+    │     │ └─short: false
+    │     │ └─expr: Span
+    │     │   └─capture: false
+    │     │   └─reverse: true
+    │     │   └─expr: Seq
+    │     │     └─seq: [#2]
+    │     │       └─Guarded
+    │     │       │ └─expr: Opt
+    │     │       │ │ └─short: false
+    │     │       │ │ └─expr: Literal(/)
+    │     │       │ └─canStart: [#1]
+    │     │       │   └─/
+    │     │       └─Plus
+    │     │         └─short: false
+    │     │         └─expr: Sat
+    │     │           └─sat: <fun>
+    │     │           └─explain: [.\w]
+    │     └─Literal(/)
+    │     └─Literal(/)
+    └─Guarded
+      └─expr: Opt
+      │ └─short: false
+      │ └─expr: Span
+      │   └─capture: true
+      │   └─reverse: true
+      │   └─expr: Seq
+      │     └─seq: [#2]
+      │       └─Literal(:)
+      │       └─Span
+      │         └─capture: true
+      │         └─reverse: true
+      │         └─expr: Plus
+      │           └─short: false
+      │           └─expr: Sat
+      │             └─sat: <fun>
+      │             └─explain: [\w]
+      └─canStart: [#1]
+        └─:
+()
+(
+ StringMatch(//wiggle.wogle/foo/,//wiggle.wogle/foo/)
+ StringMatch(://foo.bar/x/y,//foo.bar/x/y)
+ StringMatch(//ficity.helps,//ficity.helps)
+ StringMatch(://www.sputum.com/some/other/url/path/,//www.sputum.com/some/other/url/path/)
+)
+URL pattern: forward scanning seems to work
+(
+ StringMatch(http://www.sputum.com/some/other/url/path/,//www.sputum.com/some/other/url/path/,ttp)
+ StringMatch(//ficity.helps,//ficity.helps)
+ StringMatch(span://foo.bar,//foo.bar,pan)
+ StringMatch(//wiggle.wogle/foo,//wiggle.wogle/foo)
+)
