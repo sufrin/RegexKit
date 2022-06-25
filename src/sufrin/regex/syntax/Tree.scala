@@ -312,7 +312,7 @@ case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T
 case class Opt[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
   def compile(groups: Int, program: Builder[T]): Int = {
     val next, lEnd = machine.Lab[T](-1)
-    program += machine.Fork(if (short) List(next, lEnd) else List(lEnd, next))
+    program += machine.Fork(if (short) List(lEnd, next) else List(next, lEnd))
     program.define(next)
     val groups_ = expr.compile(groups, program)
     program.define(lEnd)

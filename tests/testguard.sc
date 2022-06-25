@@ -1,19 +1,20 @@
 import sufrin.regex._
 import TestKit._
 
-val pattern = """(\w\w*)(((\.)\w\w*)?)"""
-val subject = "abcde.fghij pqrs == "
+val pattern = """(\w+)((=\w+)?)"""
+val subject = "abcde=fghij pqrs == "
 s"Guarded compilation of \"$pattern\"".show()
 Regex.guarding=true
 val r0 = Regex(pattern)
 s"Prefixes: $subject".show()
-r0.prefixes("abcde.fghij pqrs ==").show()
-r0.allPrefixes("===abcde.fghij pqrs ==").show()
+r0.prefixes(subject).show()
+r0.matches("abcde=fghij").show()
+r0.allPrefixes(subject).show()
 r0.forwardInstructions.show()
 r0.tree.prettyPrint.show()
 
 s"Suffixes: $subject".show()
-r0.allSuffixes("===abcde.fghij pqrs ==").show()
+r0.allSuffixes(subject).show()
 r0.reverseInstructions.show()
 r0.tree.prettyPrint.show()
 
@@ -21,13 +22,14 @@ s"Unguarded compilation of \"$pattern\"".show()
 Regex.guarding=false
 val r1 = Regex(pattern)
 s"Prefixes: $subject".show()
-r1.prefixes("abcde.fghij pqrs ==").show()
-r1.allPrefixes("===abcde.fghij pqrs ==").show()
-r0.forwardInstructions.show()
-r0.tree.prettyPrint.show()
+r1.prefixes(subject).show()
+r1.matches("abcde=fghij").show()
+r1.allPrefixes(subject).show()
+r1.forwardInstructions.show()
+r1.tree.prettyPrint.show()
 
 s"Suffixes: $subject".show()
-r1.allSuffixes("===abcde.fghij pqrs ==").show()
+r1.allSuffixes(subject).show()
 r0.reverseInstructions.show()
 r0.tree.prettyPrint.show()
 
