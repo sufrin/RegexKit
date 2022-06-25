@@ -144,7 +144,8 @@ case class Any[T]() extends Tree[T] {
 
 /**
  *   Surrounds `?` and `*` constructions, when the guard
- *   optimization is on.
+ *   optimization is enabled. Logically unnecessary, so currently
+ *   disabled.
  */
 case class Guarded[T](expr: Tree[T]) extends Tree[T] with sufrin.regex.PrettyPrint.PrettyPrintable {
   override def prefix: String = "Guarded"

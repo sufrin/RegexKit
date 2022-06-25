@@ -51,14 +51,30 @@ case class Sat[T](sat: T => Boolean, explain: String)  extends Instruction[T]{
 /** A guarded jump that consumes nothing; suitable for use
  *  when compiling repeats or opts
  *
- *  without this instruction R+ compiles to
+ *  without this instruction `R*` compiles to
+ *  {{{
  *  => s => e
  *  s: R
  *     => s
  *  e:
+ *  }}}
  *
- *  But
+ *  With it, `R*` compiles to
  *
+ *  {{{
+ *  ? => e (P)
+ *  => s => e
+ *  s: R
+ *     => s
+ *  e:
+ *  }}}
+ *
+ *  where `P` is a predicate that holds iff the current
+ *  symbol could start an `R`. The instruction jumps if
+ *  `P` doesn't hold; thereby skipping the whole of `R`.
+ *
+ *  There is little point in generating this instruction
+ *  for `R*` or `R?` if `R` itself is simple.
  *
  */
 case class Guard[T](sat: T => Boolean, skip: Lab[T], explain: String)  extends Instruction[T]{

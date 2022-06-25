@@ -8,6 +8,9 @@ import java.util.NoSuchElementException
 object Regex {
   type CharMatch = Match[Char]
 
+  /** Compile the guarded forms of `R*` and `R?` */
+  var guarding: Boolean = false
+
   /** Value class representing a successful match */
   class StringMatch(val theMatch: Match[Char])  extends AnyVal {
 

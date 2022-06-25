@@ -1,0 +1,326 @@
+Guarded compilation of "(\w\w*)(((\.)\w\w*)?)"
+Prefixes: abcde.fghij pqrs == 
+Some(StringMatch(abcde.,abcde,.))
+(
+ StringMatch(abcde.,abcde,.)
+ StringMatch(fghij,fghij,)
+ StringMatch(pqrs,pqrs,)
+)
+([\w][\w]*$$$)((([\.])[\w][\w]*$$$)?$$$)
+0	Start(0)
+1	Start(1)
+2	[\w]
+3	? => 7 (CanStart([\w]))
+4	 =>5 =>7
+5	[\w]
+6	-> 4
+7	End(1)
+8	Start(2)
+9	? => 21 (CanStart([\.]))
+10	 =>21 =>11
+11	Start(3)
+12	Start(4)
+13	[\.]
+14	End(4)
+15	[\w]
+16	? => 20 (CanStart([\w]))
+17	 =>18 =>20
+18	[\w]
+19	-> 17
+20	End(3)
+21	End(2)
+22	End(0)
+23	Matched(-1)
+
+└─Seq
+  └─seq: [#2]
+    └─Span
+    │ └─capture: true
+    │ └─reverse: false
+    │ └─expr: Seq
+    │   └─seq: [#2]
+    │     └─Sat
+    │     │ └─sat: <fun>
+    │     │ └─explain: [\w]
+    │     └─Guarded
+    │       └─expr: Star
+    │       │ └─short: false
+    │       │ └─expr: Sat
+    │       │   └─sat: <fun>
+    │       │   └─explain: [\w]
+    │       └─canStart: [#1]
+    │         └─[\w]
+    └─Span
+      └─capture: true
+      └─reverse: false
+      └─expr: Guarded
+        └─expr: Opt
+        │ └─short: false
+        │ └─expr: Span
+        │   └─capture: true
+        │   └─reverse: false
+        │   └─expr: Seq
+        │     └─seq: [#3]
+        │       └─Span
+        │       │ └─capture: true
+        │       │ └─reverse: false
+        │       │ └─expr: Sat
+        │       │   └─sat: <fun>
+        │       │   └─explain: [\.]
+        │       └─Sat
+        │       │ └─sat: <fun>
+        │       │ └─explain: [\w]
+        │       └─Guarded
+        │         └─expr: Star
+        │         │ └─short: false
+        │         │ └─expr: Sat
+        │         │   └─sat: <fun>
+        │         │   └─explain: [\w]
+        │         └─canStart: [#1]
+        │           └─[\w]
+        └─canStart: [#1]
+          └─[\.]
+()
+Suffixes: abcde.fghij pqrs == 
+(
+ StringMatch(pqrs,s,pqr)
+ StringMatch(abcde.fghij,.fghij,abcde,.)
+)
+([\w][\w]*$$$)((([\.])[\w][\w]*$$$)?$$$)
+0	End(0)
+1	End(1)
+2	? => 14 (CanStart([\w] [\w]))
+3	 =>14 =>4
+4	End(2)
+5	? => 9 (CanStart([\w]))
+6	 =>7 =>9
+7	[\w]
+8	-> 6
+9	[\w]
+10	End(3)
+11	[\.]
+12	Start(3)
+13	Start(2)
+14	Start(1)
+15	End(2)
+16	? => 20 (CanStart([\w]))
+17	 =>18 =>20
+18	[\w]
+19	-> 17
+20	[\w]
+21	Start(2)
+22	Start(0)
+23	Matched(-1)
+
+└─Seq
+  └─seq: [#2]
+    └─Span
+    │ └─capture: true
+    │ └─reverse: false
+    │ └─expr: Seq
+    │   └─seq: [#2]
+    │     └─Sat
+    │     │ └─sat: <fun>
+    │     │ └─explain: [\w]
+    │     └─Guarded
+    │       └─expr: Star
+    │       │ └─short: false
+    │       │ └─expr: Sat
+    │       │   └─sat: <fun>
+    │       │   └─explain: [\w]
+    │       └─canStart: [#1]
+    │         └─[\w]
+    └─Span
+      └─capture: true
+      └─reverse: false
+      └─expr: Guarded
+        └─expr: Opt
+        │ └─short: false
+        │ └─expr: Span
+        │   └─capture: true
+        │   └─reverse: false
+        │   └─expr: Seq
+        │     └─seq: [#3]
+        │       └─Span
+        │       │ └─capture: true
+        │       │ └─reverse: false
+        │       │ └─expr: Sat
+        │       │   └─sat: <fun>
+        │       │   └─explain: [\.]
+        │       └─Sat
+        │       │ └─sat: <fun>
+        │       │ └─explain: [\w]
+        │       └─Guarded
+        │         └─expr: Star
+        │         │ └─short: false
+        │         │ └─expr: Sat
+        │         │   └─sat: <fun>
+        │         │   └─explain: [\w]
+        │         └─canStart: [#1]
+        │           └─[\w]
+        └─canStart: [#1]
+          └─[\.]
+()
+Unguarded compilation of "(\w\w*)(((\.)\w\w*)?)"
+Prefixes: abcde.fghij pqrs == 
+Some(StringMatch(abcde,abcde,))
+(
+ StringMatch(abcde,abcde,)
+ StringMatch(fghij,fghij,)
+ StringMatch(pqrs,pqrs,)
+)
+([\w][\w]*$$$)((([\.])[\w][\w]*$$$)?$$$)
+0	Start(0)
+1	Start(1)
+2	[\w]
+3	? => 7 (CanStart([\w]))
+4	 =>5 =>7
+5	[\w]
+6	-> 4
+7	End(1)
+8	Start(2)
+9	? => 21 (CanStart([\.]))
+10	 =>21 =>11
+11	Start(3)
+12	Start(4)
+13	[\.]
+14	End(4)
+15	[\w]
+16	? => 20 (CanStart([\w]))
+17	 =>18 =>20
+18	[\w]
+19	-> 17
+20	End(3)
+21	End(2)
+22	End(0)
+23	Matched(-1)
+
+└─Seq
+  └─seq: [#2]
+    └─Span
+    │ └─capture: true
+    │ └─reverse: false
+    │ └─expr: Seq
+    │   └─seq: [#2]
+    │     └─Sat
+    │     │ └─sat: <fun>
+    │     │ └─explain: [\w]
+    │     └─Guarded
+    │       └─expr: Star
+    │       │ └─short: false
+    │       │ └─expr: Sat
+    │       │   └─sat: <fun>
+    │       │   └─explain: [\w]
+    │       └─canStart: [#1]
+    │         └─[\w]
+    └─Span
+      └─capture: true
+      └─reverse: false
+      └─expr: Guarded
+        └─expr: Opt
+        │ └─short: false
+        │ └─expr: Span
+        │   └─capture: true
+        │   └─reverse: false
+        │   └─expr: Seq
+        │     └─seq: [#3]
+        │       └─Span
+        │       │ └─capture: true
+        │       │ └─reverse: false
+        │       │ └─expr: Sat
+        │       │   └─sat: <fun>
+        │       │   └─explain: [\.]
+        │       └─Sat
+        │       │ └─sat: <fun>
+        │       │ └─explain: [\w]
+        │       └─Guarded
+        │         └─expr: Star
+        │         │ └─short: false
+        │         │ └─expr: Sat
+        │         │   └─sat: <fun>
+        │         │   └─explain: [\w]
+        │         └─canStart: [#1]
+        │           └─[\w]
+        └─canStart: [#1]
+          └─[\.]
+()
+Suffixes: abcde.fghij pqrs == 
+(
+ StringMatch(pqrs,,)
+ StringMatch(abcde.fghij,.fghij,.fghij,.,abcde)
+)
+([\w][\w]*$$$)((([\.])[\w][\w]*$$$)?$$$)
+0	End(0)
+1	End(1)
+2	? => 14 (CanStart([\w] [\w]))
+3	 =>14 =>4
+4	End(2)
+5	? => 9 (CanStart([\w]))
+6	 =>7 =>9
+7	[\w]
+8	-> 6
+9	[\w]
+10	End(3)
+11	[\.]
+12	Start(3)
+13	Start(2)
+14	Start(1)
+15	End(2)
+16	? => 20 (CanStart([\w]))
+17	 =>18 =>20
+18	[\w]
+19	-> 17
+20	[\w]
+21	Start(2)
+22	Start(0)
+23	Matched(-1)
+
+└─Seq
+  └─seq: [#2]
+    └─Span
+    │ └─capture: true
+    │ └─reverse: false
+    │ └─expr: Seq
+    │   └─seq: [#2]
+    │     └─Sat
+    │     │ └─sat: <fun>
+    │     │ └─explain: [\w]
+    │     └─Guarded
+    │       └─expr: Star
+    │       │ └─short: false
+    │       │ └─expr: Sat
+    │       │   └─sat: <fun>
+    │       │   └─explain: [\w]
+    │       └─canStart: [#1]
+    │         └─[\w]
+    └─Span
+      └─capture: true
+      └─reverse: false
+      └─expr: Guarded
+        └─expr: Opt
+        │ └─short: false
+        │ └─expr: Span
+        │   └─capture: true
+        │   └─reverse: false
+        │   └─expr: Seq
+        │     └─seq: [#3]
+        │       └─Span
+        │       │ └─capture: true
+        │       │ └─reverse: false
+        │       │ └─expr: Sat
+        │       │   └─sat: <fun>
+        │       │   └─explain: [\.]
+        │       └─Sat
+        │       │ └─sat: <fun>
+        │       │ └─explain: [\w]
+        │       └─Guarded
+        │         └─expr: Star
+        │         │ └─short: false
+        │         │ └─expr: Sat
+        │         │   └─sat: <fun>
+        │         │   └─explain: [\w]
+        │         └─canStart: [#1]
+        │           └─[\w]
+        └─canStart: [#1]
+          └─[\.]
+()

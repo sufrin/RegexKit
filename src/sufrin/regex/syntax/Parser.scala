@@ -39,7 +39,8 @@ class Parser (val text: String, val tracing: Boolean = false)  {
     }
 
     // To embed R? and R* constructs.
-    @inline def pushGuarded(t: Tree[Char]): Unit = push(Guarded(t))
+    @inline def pushGuarded(t: Tree[Char]): Unit =
+      if (sufrin.regex.Regex.guarding) push(Guarded(t)) else push(t)
 
     while (rd) {
       lexeme match {
