@@ -2,7 +2,21 @@ package sufrin.regex.machine
 import  sufrin.regex.Match
 import  sufrin.regex.machine.Program._
 
-
+/**
+ * The state of an ongoing nondeterministic match for a regular expression pattern.
+ * The pattern has been compiled into a program for a machine that runs
+ * one or more deterministic recognisers concurrently. Each recogniser is
+ * represented as a `Fibre` (a lightweight thread) with its own `pc` and its
+ * own collection of ''groups'': pointers spanning parts of the text
+ * recognised by individual parenthesised components of the regular expression.
+ *
+ * At each (major) cycle of the machine ''all'' running fibres consider the same
+ * indexed value of the `input`, and decide whether or not ''their'' match
+ * has succeeded, failed, must continue, or must fork into more than one
+ * fibre.
+ *
+ * See below for further detail.
+ */
 
 class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
   import State._
@@ -58,9 +72,9 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  {{{
    *    oneProgramStep(start, end, sourcePos, in, pc, groups)
    *  }}}
-   *  This makes adding new kinds of instruction very straightforward -- but at the cost of
-   *  needing an arbitrary input value to supply to the housekeeping instructions executed
-   *  after the end of the input-proper has been reached.
+   *  This makes adding new kinds of instruction very straightforward -- at the (minimal)
+   *  cost in "elegance" of needing an arbitrary input value to supply to the "housekeeping"
+   *  instructions executed after the end of the input-proper has been reached.
    */
   private var arbitraryInput: T = _   // implemented as null
 
@@ -111,7 +125,19 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       }
   }
 
-  def run(reversed: Boolean, search: Boolean = true, tracePos: Boolean = false): Option[Match[T]] = {
+  /**
+   * Run the nondeterministic matcher's threads.
+   * @param reversed the match/search is for a suffix and is to be conducted in reverse.
+   * @param search deprecated: see '''Important Note''' above.
+   * @param tracePos show the position of the current input in the input sequence at
+   *                 the start of each major cycle of the machine.
+   * @return `None` if the run is unsuccessful, or `Some(Match)`, where
+   *         the match is witness to a successful run.
+   *
+   * '''Important:''' a reversed run must use the `reversed` form of a regular expression; else the
+   * starting and ending locations of matched groups will be wrong.
+   */
+  def run(reversed: Boolean, search: Boolean = false, tracePos: Boolean = false): Option[Match[T]] = {
     /*
      *  Invariant: 0<=count<=limit
      */
@@ -128,7 +154,11 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       count     += 1
     }
 
-    /** Set `current` to the next NDA state */
+    /**
+     * Set `current` to the next NDA state, by
+     * running one instruction of each `current`ly-active
+     * fibre.
+     */
     @inline def nextNDAState(in: T): Result = {
       var result: Result = None
 
@@ -144,44 +174,54 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
         if (!search && result.nonEmpty && pending.nonEmpty && count != limit) result = None
         if (traceSteps) { println(s"        *** C: ${current.repString}, P: ${pending.repString}") }
       }
+      // TODO: investigate this loop terminating when current.nonEMpty (because result.nonEmpty)
       // current.isEmpty || result.nonEmpty
       continue()
       result
     }
 
+    // The original fibre
     current.addFibre(0, new Fibre(0, groups))
-    // sourcePos = if (reversed) end-1 else start
 
-      while (result.isEmpty && current.nonEmpty && count != limit) {
+    // Execute major cycles while there is input left and no result has been found
+    while (result.isEmpty && current.nonEmpty && count != limit) {
         val in = input(sourcePos)
         if (tracePos) println(s"'$in'@$sourcePos")
         result = nextNDAState(in)
         inspectNextInput()
-      }
-      // result.nonEmpty || current.isEmpty || count == limit
+    }
+    // TODO: see previous TODO
+    // result.nonEmpty || current.isEmpty || count == limit
 
-      if (traceSteps) println(s"Finally: (result: $result, lastResult: $lastResult")
+    if (traceSteps) println(s"Finally: (result: $result, lastResult: $lastResult")
 
-      var finalIn = arbitraryInput
+    var finalIn = arbitraryInput
 
-      if (count != limit) {
-        finalIn = input(sourcePos)
-        if (tracePos) println(s"$finalIn@$sourcePos")
-        inspectNextInput()
-      }
+    // There is still some input
+    if (count != limit) {
+      finalIn = input(sourcePos)
+      if (tracePos) println(s"$finalIn@$sourcePos")
+      inspectNextInput()
+    }
 
-     /* If `current.nonEmpty` then the transition to an accepting (or failing) state
-      * still requires the execution of further ''housekeeping'' instructions
-      */
-      nextNDAState(finalIn) match {
-        case None    => result = lastResult
-        case success => result = success
-      }
+   /*
+    * If `current.nonEmpty` then the transition to an accepting (or failing) state
+    * still requires the execution of further ''housekeeping'' instructions
+    */
+    nextNDAState(finalIn) match {
+      case None    => result = lastResult
+      case success => result = success
+    }
 
-
-    // *******
-
-
+    /*
+     * If in an accepting state then wrap then construct a match from
+     * the matched groups.
+     *
+     *
+     * NB: the `index` is only relevant when a `Branched`
+     * expression has been matched. It is the ordinal number of the
+     * branch that was actually matched.
+     */
     result match {
       case None => None
       case Some((index, groups)) => Some(wrap(input, index, groups))
@@ -190,6 +230,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
 
+  /** Construct a match from a successful result.  */
   def wrap(_input: IndexedSeq[T], _index: Int, _groups: Groups): Match[T]  = new Match[T] {
      val input  = _input
      val index  = _index

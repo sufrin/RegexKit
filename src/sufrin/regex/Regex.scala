@@ -142,7 +142,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   /**
    * If the expression matches a prefix of {{{subject[from..to)}}} return `Some(theMatch)` otherwise return `None`
    *
-   * '''Defaults'''
+   * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
@@ -160,7 +160,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   /**
    * If the expression matches a prefix of {{{subject[from..to)}}} return `Some(theMatch)` otherwise return `None`
    *
-   * '''Defaults'''
+   * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
@@ -173,7 +173,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   /**
    * If the expression matches  {{{subject[from..to)}}} exactly return `Some(theMatch)` otherwise return `None`
    *
-   * '''Defaults'''
+   * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
@@ -189,7 +189,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * If there is a matching prefix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)`
    * otherwise return `None`
    *
-   * '''Defaults'''
+   * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
@@ -208,7 +208,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   /**
    * If there is a matching suffix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)` otherwise return `None`
    *
-   * '''Defaults'''
+   * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
@@ -258,7 +258,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    *}}}
    *
    *
-   * '''Defaults'''
+   * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
