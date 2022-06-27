@@ -158,7 +158,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   def reverseCodeListing: String = (for {i<-0 until reverseCode.length} yield s"$i\t${reverseCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
 
   /**
-   * If the expression matches a prefix of {{{subject[from..to)}}} return `Some(theMatch)` otherwise return `None`
+   * If the expression matches a suffix of {{{subject[from..to)}}} return `Some(it)`, where `it` is the
+   * match describing the longest such matching suffix; otherwise return `None`
    *
    * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
@@ -186,8 +187,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   }
 
   /**
-   * If there is a matching prefix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)`
-   * otherwise return `None`
+   * If there is a matching prefix of  {{{subject[from..to)}}} return `Some(it)` where `it` is the match
+   * that starts closest to `from`; otherwise return `None`.
    *
    * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
@@ -206,7 +207,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
     for { theMatch <- result } yield StringMatch(theMatch)
   }
   /**
-   * If there is a matching suffix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)` otherwise return `None`
+   * If there is a matching suffix of  {{{subject[from..to)}}} return `Some(it)`  where `it` is the match
+   * that ends closest to `to`; otherwise return `None`
    *
    * '''Defaults:'''
    * If `to` isn't supplied, then it is taken to be `subject.length`.
