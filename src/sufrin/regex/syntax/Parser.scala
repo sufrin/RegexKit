@@ -49,7 +49,7 @@ class Parser (val text: String, val tracing: Boolean = false)  {
         case Plus(nonGreedy)         =>  push (sufrin.regex.syntax.Plus(nonGreedy, pop()))
         case Opt (nonGreedy)         =>  pushGuarded (sufrin.regex.syntax.Opt (nonGreedy, pop()))
         case Star(nonGreedy)         =>  pushGuarded (sufrin.regex.syntax.Star(nonGreedy, pop()))
-        case Guard                   =>  pushGuarded (pop()) // voluntarily guard
+        case Guard                   =>  push (Guarded(pop())) // voluntarily guard
 
         // for simplicity we don't enforce the end of the sequence at which an anchor appears
         case LeftAnchor              =>  push (sufrin.regex.syntax.Anchor(left=true))

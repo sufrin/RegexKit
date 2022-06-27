@@ -19,7 +19,7 @@ intPat.suffixes("abc1234567")
 intPat.findSuffix("abc1234567qrstu")
 
 
-"Matches at various places/sizes" . show()
+"Matches at various places/sizes. Expecting 4567, 456" . show()
 "*** Expecting 4567". show()
 intPat.matches("1234567", 3) .show()
 "*** Expecting 456". show()
@@ -38,15 +38,14 @@ s"SUBJECT: $subject" . show()
 "realPat.allPrefixes expecting 12 matches" . show()
 realPat.allPrefixes(subject) . show()
 
-"realPat.allSuffixes expecting same 12 matches: FAILS" . show()
-// reverse matching of some repeated constructions fails
-// some evidence points to ? constructs
+"realPat.allSuffixes expecting same 12 matches" . show()
 realPat.allSuffixes(subject) . toList . reverse . show()
 realPat.reverseInstructions.show()
 realPat.tree.reversed.prettyPrint
 realPat.tree.prettyPrint
 
 
+"realPat prefix and reversed-suffix spans. Expecting 12x2 identical" . show()
 realPat.allPrefixes(subject) .
     toList . map ( _.span ) . show()
 
@@ -62,15 +61,15 @@ wordsPat.findSuffix(" ====    foobaz is best for you") . show()
 wordPat.allPrefixes(" ====  xyzzy +++ --- fiddle dedee ") . show()
 wordPat.allSuffixes(" ====  xyzzy +++ --- fiddle dedee ") . show()
 
-"URL pattern: problems with reverse scanning?" . show()
+"URL pattern: reverse scanning (reversed order)" . show()
 val urlSubject = "http://www.sputum.com/some/other/url/path/ //ficity.helps span://foo.bar/x/y //wiggle.wogle/foo/ bar"
 s"URLSubject: $urlSubject" . show()
 val urlPat = Regex("((\\w+):)?(//(?:[.\\w]+/?)+)")
 urlPat.reverseInstructions.show()
 urlPat.tree.reversed.prettyPrint.show()
-urlPat.allSuffixes(urlSubject) . show()
+urlPat.allSuffixes(urlSubject) . toList . reverse . show()
 
-"URL pattern: forward scanning seems to work" . show()
+"URL pattern: forward scanning (same as reverse scanning)" . show()
 urlPat.allPrefixes("http://www.sputum.com/some/other/url/path/ //ficity.helps span://foo.bar //wiggle.wogle/foo bar") . show()
 
 
