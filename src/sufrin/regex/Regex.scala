@@ -131,27 +131,39 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
 
   import sufrin.regex.Regex.StringMatch
 
-  /** the code for use in forward-matching operations: compiled on demand  */
+  /** The code for use in forward-matching operations: compiled on demand  */
   lazy val forwardCode = tree.compile(reverse = false, showCode = showCode)
 
-  /** the code for use in reverse-matching operations: compiled on demand  */
+  /** The code for use in reverse-matching operations: compiled on demand  */
   lazy val reverseCode = tree.compile(reverse = true,  showCode = showCode)
 
   override def toString: String = s"Regex(${tree.source})"
 
   /**
    * If the expression matches a prefix of {{{subject[from..to)}}} return `Some(theMatch)` otherwise return `None`
+   *
+   * '''Defaults'''
+   * If `to` isn't supplied, then it is taken to be `subject.length`.
+   * If neither `from` nor `to` appears, then the entire
+   * `subject` is considered.
    */
   def prefixes(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
     val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace)
     for { theMatch <- state.run(reversed=false, search = false, trace) } yield StringMatch(theMatch)
   }
 
-  def forwardInstructions: String = (for { i<-0 until forwardCode.length } yield s"$i\t${forwardCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
-  def reverseInstructions: String = (for { i<-0 until reverseCode.length } yield s"$i\t${reverseCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+  /** Human-readable form of `forwardCode`, including instruction addresses. */
+  def forwardCodeListing: String = (for {i<-0 until forwardCode.length} yield s"$i\t${forwardCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+  /** Human-readable form of `reverseCode`, including instruction addresses. */
+  def reverseCodeListing: String = (for {i<-0 until reverseCode.length} yield s"$i\t${reverseCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
 
   /**
    * If the expression matches a prefix of {{{subject[from..to)}}} return `Some(theMatch)` otherwise return `None`
+   *
+   * '''Defaults'''
+   * If `to` isn't supplied, then it is taken to be `subject.length`.
+   * If neither `from` nor `to` appears, then the entire
+   * `subject` is considered.
    */
   def suffixes(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
     val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace)
@@ -160,6 +172,11 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
 
   /**
    * If the expression matches  {{{subject[from..to)}}} exactly return `Some(theMatch)` otherwise return `None`
+   *
+   * '''Defaults'''
+   * If `to` isn't supplied, then it is taken to be `subject.length`.
+   * If neither `from` nor `to` appears, then the entire
+   * `subject` is considered.
    */
   def matches(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
     val start = if (from>=0) from else 0
@@ -169,7 +186,13 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
   }
 
   /**
-   * If the there is a matching subsequence of  {{{subject[from..to)}}} return `Some(theEarliestMatch)` otherwise return `None`
+   * If there is a matching prefix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)`
+   * otherwise return `None`
+   *
+   * '''Defaults'''
+   * If `to` isn't supplied, then it is taken to be `subject.length`.
+   * If neither `from` nor `to` appears, then the entire
+   * `subject` is considered.
    */
   def findPrefix(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
     var start = if (from>=0) from else 0
@@ -183,7 +206,12 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
     for { theMatch <- result } yield StringMatch(theMatch)
   }
   /**
-   * If the there is a matching suffix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)` otherwise return `None`
+   * If there is a matching suffix of  {{{subject[from..to)}}} return `Some(theEarliestMatch)` otherwise return `None`
+   *
+   * '''Defaults'''
+   * If `to` isn't supplied, then it is taken to be `subject.length`.
+   * If neither `from` nor `to` appears, then the entire
+   * `subject` is considered.
    */
   def findSuffix(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
     val start = if (from>=0) from else 0
@@ -205,8 +233,11 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * materially during the lifetime of the iterator; something that the
    * `CharSequence` interface does not guarantee.
    *
-   * But it is possible to reify the string matches and their spans, etc. Here are
-   * a couple of confected examples:
+   * But it is possible to reify the string matches and their spans, etc, so that they
+   * are subsequently independent of the state of the `subject`, and depend only on
+   * its state between the start and end of the search.
+   *
+   * Here is a confected example:
    * {{{
    * val realPat = Regex("""\d+(?:\.\d*  [eE]-?\d+ | [eE]-?\d+)""")
    * realPat.allPrefixes(((("*"*30)++"34.567e-6a")*2++"3E-5")*3) .
@@ -219,20 +250,18 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    *     map ( _.span )
    * }}}
    *
-   * The first example yields
+   * It yields
    * {{{
    *    List(0.001234567, 0.001234567, 2.3E-4,
    *         0.001234567, 0.001234567, 2.3E-4,
    *         0.001234567, 0.001234567, 2.3E-4)
    *}}}
    *
-   * The second yields:
-   * {{{
-   *    List((30,41),   (72,83),   (84,89),   (119,130),
-   *         (161,172), (173,178), (208,219), (250,261),
-   *         (262,267))
-   * }}}
    *
+   * '''Defaults'''
+   * If `to` isn't supplied, then it is taken to be `subject.length`.
+   * If neither `from` nor `to` appears, then the entire
+   * `subject` is considered.
    */
   def allPrefixes(subject: CharSequence, _from: Int = -1, _to: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
     var first   = if (_from >=0) _from else 0

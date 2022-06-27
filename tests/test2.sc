@@ -5,12 +5,12 @@ import sufrin.regex.Regex
 
 val intPat = Regex("""(\d*\d)""")
 intPat.tree.prettyPrint
-intPat.forwardInstructions.show()
-intPat.reverseInstructions.show()
+intPat.forwardCodeListing.show()
+intPat.reverseCodeListing.show()
 val intPat1 = Regex("""(\d\d*)""")
 intPat1.tree.prettyPrint
-intPat1.forwardInstructions.show()
-intPat1.reverseInstructions.show()
+intPat1.forwardCodeListing.show()
+intPat1.reverseCodeListing.show()
 
 "Suffixes (all expecting 1234567)" . show()
 intPat.suffixes("1234567", 0, 7)
@@ -40,7 +40,7 @@ realPat.allPrefixes(subject) . show()
 
 "realPat.allSuffixes expecting same 12 matches" . show()
 realPat.allSuffixes(subject) . toList . reverse . show()
-realPat.reverseInstructions.show()
+realPat.reverseCodeListing.show()
 realPat.tree.reversed.prettyPrint
 realPat.tree.prettyPrint
 
@@ -65,7 +65,7 @@ wordPat.allSuffixes(" ====  xyzzy +++ --- fiddle dedee ") . show()
 val urlSubject = "http://www.sputum.com/some/other/url/path/ //ficity.helps span://foo.bar/x/y //wiggle.wogle/foo/ bar"
 s"URLSubject: $urlSubject" . show()
 val urlPat = Regex("((\\w+):)?(//(?:[.\\w]+/?)+)")
-urlPat.reverseInstructions.show()
+urlPat.reverseCodeListing.show()
 urlPat.tree.reversed.prettyPrint.show()
 urlPat.allSuffixes(urlSubject) . toList . reverse . show()
 
