@@ -1,12 +1,19 @@
 package sufrin.regex
 
 import sufrin.regex.machine.{Groups, State}
-import sufrin.regex.syntax.{Parser, Tree}
+import sufrin.regex.syntax.{Tree,Parser}
 
 import java.util.NoSuchElementException
 
 object Regex {
   type CharMatch = Match[Char]
+
+  /** A literal matcher */
+  def literal(string: String): Regex = {
+      import sufrin.regex.syntax.{Seq,Literal}
+      val tree = Seq(string.map(Literal(_)))
+      Regex(tree, false, false)
+  }
 
   /** Compile the guarded forms of `R*` and `R?` */
   var guarding: Boolean = false
@@ -311,6 +318,38 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
       }
       else throw new NoSuchElementException(s"$thisRegex.allSuffixes iterator ran out")
     }
+  }
+
+  /**
+   *  Substitute an expanded instance of the template for each matching instance of this
+   *  regular expression in the input. Return the substituted result with a count of
+   *  the number of substitutions that were made. When `literal` is true, the template is
+   *  not expanded.
+   *
+   *  @see Match.substitute
+   */
+  def substituteAll(input: CharSequence, template: String, literal: Boolean): (Int, String) = {
+    val result = new StringBuilder
+    val length = input.length
+    val matches = allPrefixes(input)
+    var copyFrom = 0
+    var count    = 0
+    while (matches.hasNext) {
+      count += 1
+      val instance = matches.next()
+      while (copyFrom<instance.start) {
+        result.addOne(input.charAt(copyFrom))
+        copyFrom += 1
+      }
+      result.addAll(if (literal) template else instance.substitute(template))
+      copyFrom = instance.end
+    }
+    // run out the tail
+    while (copyFrom<length) {
+      result.addOne(input.charAt(copyFrom))
+      copyFrom += 1
+    }
+    (count, result.toString())
   }
 
 }
