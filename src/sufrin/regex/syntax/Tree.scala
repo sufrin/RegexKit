@@ -43,7 +43,7 @@ trait Tree[T]  {
   def nilPotent: Boolean = false
 
   /**
-   *   Convenientce methods for composing expressions without
+   *   Convenience methods for composing expressions without
    * parsing them.
    */
   def | (r: Tree[T]): Tree[T]   = Alt(this, r)
