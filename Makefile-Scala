@@ -1,0 +1,58 @@
+#
+#          A monolithic executable Makefile that recompiles (see
+#          SCALAC) all discoverable sources if ANY were edited later
+#          than the target. It should be "include"d with MAIN, JAR, and
+#          PKG parameters set appropriately. 
+#
+
+FOILS  := $(wildcard [0-9x][0-9x]*.tex)
+SOURCE := $(wildcard */*/*/*.scala */*/*.scala */*.scala)
+LIB    := $(HOME)/local/scalalib
+CP     := $(LIB)/.
+
+#       Parameters: where the outputs will go. 
+#       * RUN specifies the name of the (local) script that runs scala using the 
+#         compilation classpath augmented the compiler's destination folder
+#       * PKG specifies a package prefix for the main object that the scrpt runs: $(PKG)$MAIN)
+#       * BIN specifies the compiler's destination folder
+#       * DOC specifies the folder into which the documentation is generated
+#       * $(DOC)/index.html is the root of the documentation tree.
+
+BIN    := bin
+DOC    := out/artifacts/doc
+RUN    := run
+
+#
+#       If you happen to use IntelliJ, then the following parameters will be useful
+#        
+#
+
+#       Parameters: compiler, flags, documentation program
+#
+#       SCALAC specifies the scala compiler
+#               I no longer trust "fsc" (the incremental Scala compiler), 
+#
+#       SFLAGS specifies the flags given to the scala compiler
+#
+
+SCALAC   := scalac
+SFLAGS   := -deprecation 
+SCALADOC := scaladoc -deprecation -groups -sourcepath src -diagrams -diagrams-dot-path /usr/local/bin/dot
+
+
+
+#       Targets. The default target is "all"
+
+all:     show doc jar
+
+show:    ; @echo SOURCE FILES $(SOURCEFILES)
+doc::    $(DOC)
+jar::    $(JAR)
+
+
+$(JAR):     $(SOURCEFILES); $(SCALAC) $(SFLAGS)  -d $(JAR) $(SOURCEFILES)
+$(DOC):     $(SOURCEFILES); mkdir -p $(DOC) ; $(SCALADOC) -cp $(CP) -d $(DOC) $(SOURCEFILES) 
+
+
+.PHONY:     ;clean
+clean:      ;rm -rf .compiled $(BIN) $(DOC) $(JAR)
