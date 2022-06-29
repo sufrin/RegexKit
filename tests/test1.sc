@@ -84,6 +84,9 @@ all("", "abc 2222 3334444 111 5555")("""(?:(\d+)\D)""")
 "All instances without \\D after \\d+ generates spurious partial matches".show()
 all("", "abc 2222 3334444 111 5555")("""(?:(\d+))""")
 
+"Do ^ and $ match at the apt ends".show()
+findAll("", "abc 2222 3334444 111 5555")("""(^|\s)\w+""")
+findAll("", "abc 2222 3334444 111 5555")("""\w+($|\s)""")
 
 
 
