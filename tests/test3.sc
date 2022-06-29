@@ -9,8 +9,14 @@ import TestKit._
 
 val exp0 = Regex("""((a|b)*)((bc*?)*)((cd|de*)*)(e*)""")
 val exp1 = Regex("""((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
+val exp2 = Regex("""(^|x)((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
+val exp2a = Regex("""(^|[.])\w+""")
 exp0.matches("abababccccbccdcdeee") . show()
 exp1.matches("abababccccbccdcdeee") . show()
+exp2.matches("abababccccbccdcdeee") . show()
+
+"Ensure we can find a suffix starting with a ^". show()
+exp2a.allSuffixes("ababa.bxccccx.bccdc.deee") . show()
 
 val exp3 = Regex("""(abc|abcd).*""")
 val exp3a = Regex("""(abc|abcd)""")

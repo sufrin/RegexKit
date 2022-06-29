@@ -414,7 +414,7 @@ case class Anchor[T](left: Boolean) extends Tree[T] {
     groups
   }
 
-  lazy val  reversed: Tree[T] = Anchor(!left)
+  lazy val  reversed: Tree[T] = this // Anchors stay the same
   override def source: String = if (left) "^" else "$"
   def canStartWith(t: T): Boolean = left // Not sure
   val canStart: List[String] = List.empty
