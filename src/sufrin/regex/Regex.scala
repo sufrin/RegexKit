@@ -280,7 +280,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
 
     def hasNext: Boolean = {
       if (needsFind) { result = thisRegex.findPrefix (subject, first, last); needsFind = false }
-      result.nonEmpty
+      result.nonEmpty && result.get.end!=first
     }
 
     def next(): StringMatch = {
@@ -307,7 +307,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
 
     def hasNext: Boolean = {
       if (needsFind) { result = thisRegex.findSuffix (subject, first, last); needsFind = false }
-      result.nonEmpty
+      result.nonEmpty && result.get.start!=last
     }
 
     def next(): StringMatch = {
