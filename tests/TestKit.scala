@@ -10,6 +10,12 @@ object TestKit {
         case i: Iterator[Any] => println("("); for {o <- i} println(s" $o"); println(")")
         case _ => println(a)
       }
+    def revShow(): Unit =
+      a match {
+        case i: Iterable[Any] => println("("); i.foldRight(())( (o, _) => println(s" $o")); println(")")
+        case i: Iterator[Any] => println("("); i.foldRight(())( (o, _) => println(s" $o")); println(")")
+        case _ => println(a)
+      }
   }
 
   /**
