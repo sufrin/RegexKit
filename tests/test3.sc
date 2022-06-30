@@ -4,8 +4,6 @@
  * expressions.
  */
 
-import sufrin.regex._
-import TestKit._
 
 val exp0 = Regex("""((a|b)*)((bc*?)*)((cd|de*)*)(e*)""")
 val exp1 = Regex("""((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
@@ -18,6 +16,10 @@ val exp2a = Regex("""(^|[\n])\w+""")
 "Ensure we can find matches starting with a ^". show()
 exp2a.allSuffixes("ababa\nbxccccx\nbccdc\ndeee") . show()
 exp2a.allPrefixes("ababa\nbxccccx\nbccdc\ndeee") . show()
+val exp2b = Regex("""(^|[\n])""", showCode = true, trace = true)
+"Ensure we can find matches starting with a ^". show()
+exp2b.allSuffixes("ababa\nbxccccx\nbccdc\ndeee") . show()
+//exp2b.allPrefixes("ababa\nbxccccx\nbccdc\ndeee") . show()
 
 val exp3 = Regex("""(abc|abcd).*""")
 val exp3a = Regex("""(abc|abcd)""")
