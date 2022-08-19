@@ -4,7 +4,8 @@
  * expressions.
  */
 
-
+import sufrin.regex._
+import TestKit._
 val exp0 = Regex("""((a|b)*)((bc*?)*)((cd|de*)*)(e*)""")
 val exp1 = Regex("""((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
 val exp2 = Regex("""(^|x)((a|b)*)((bc*)*)((cd|de*)*)(e*)""")
