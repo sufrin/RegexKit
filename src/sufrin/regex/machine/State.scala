@@ -26,6 +26,8 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
   private var stepsLeft  = stepLimit
   def steps: Int = stepLimit - stepsLeft
 
+  @inline def checkSteps(): Unit = if (stepsLeft==0) throw new StepLimitExceeded() else stepsLeft -= 1
+
   /**
    *   Each `Fibre` represents a trace of an DFA recogniser -- for the expression from which
    *   `program` was compiled -- that has consumed the sequence of inputs between
@@ -103,7 +105,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  to capture groups accurately.
    */
   def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result = {
-    if (stepsLeft==0) throw new StepLimitExceeded() else stepsLeft -= 1
+
     val continuation = program(pc).execute(start, end, logPos, in, pc, groups)
     if (this.traceSteps) println(s"$pc: ${program(pc)} ($logPos, '$in', $pc) = $continuation")
     continuation match {
@@ -173,6 +175,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
       var result: Result = None
 
       while (current.nonEmpty && result.isEmpty) {
+        checkSteps()
         val fibre = current.fetchFibre()
         val groups = fibre.groups
         result = oneProgramStep(search, logPos, in, fibre.pc, groups)
@@ -234,17 +237,18 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
      */
     result match {
       case None => None
-      case Some((index, groups)) => Some(wrap(input, index, groups))
+      case Some((index, groups)) => Some(wrap(steps, input, index, groups))
      }
   }
 
   override def toString: String = s"State($groups)\n Current: $current\n Pending: $pending"
 
   /** Construct a match from a successful result.  */
-  def wrap(_input: IndexedSeq[T], _index: Int, _groups: Groups): Match[T]  = new Match[T] {
+  def wrap(_steps: Int, _input: IndexedSeq[T], _index: Int, _groups: Groups): Match[T]  = new Match[T] {
      val input  = _input
      val index  = _index
      val groups = _groups
+     val steps  = _steps
   }
 }
 

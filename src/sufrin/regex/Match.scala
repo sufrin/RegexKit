@@ -7,6 +7,8 @@ trait Match[T] {
   val input:  IndexedSeq[T]
   val index:  Int
   val groups: Groups
+  /** The number of steps taken to find this match */
+  val steps:  Int
 
   /**
    *   A view of the `i`'th group. At present this is implemented lazily,
@@ -58,7 +60,7 @@ trait Match[T] {
     }
   }
 
-  override def toString: String = s"/${allMatched.mkString("\"", "\", \"", "\"")}/ $groups ($index)=> "
+  override def toString: String = s"/${allMatched.mkString("\"", "\", \"", "\"")}/ $groups ($index) #$steps => "
 }
 
 object Match {

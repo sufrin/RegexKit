@@ -23,6 +23,9 @@ object Regex {
 
     override def toString: String = theMatch.toStrings.mkString("StringMatch(", ",", ")")
 
+    /** The number of steps it took to find this match: useful when debugging regular expressions */
+    def steps: Int = theMatch.steps
+
     /**
      *   An iterable over the groups captured in the match
      */
@@ -132,7 +135,7 @@ object Regex {
  * @param trace trace the running automaton during searches/matches.
  */
 
-class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val stepLimit:Int = -1) {
+class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val stepLimit: Int = -1) {
 
   thisRegex =>
 
@@ -226,7 +229,9 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
     val start = if (from>=0) from else 0
     var end   = if (to>=0)   to   else subject.length
     var result: Option[Match[Char]] = None
-    // horrible, quadratic for a failing search, but appears to be necessary for the moment (see notes on `search` in `State.run`)
+    // Quadratic in `to-from` for a failing search, but expedient for the moment -- and editor texts aren't tremendously long
+    // TODO: use the faster "recogniser" method for a pattern without capturing groups (see notes on `search` in `State.run`)
+    // TODO: (maybe) hybrid recogniser+capturer could be more efficient  (see notes on `search` in `State.run`)
     while (result.isEmpty && start < end) {
       result = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit).run(reversed = true, search = false, trace)
       end -= 1
