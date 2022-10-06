@@ -132,7 +132,7 @@ object Regex {
  * @param trace trace the running automaton during searches/matches.
  */
 
-class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
+class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val stepLimit:Int = -1) {
 
   thisRegex =>
 
@@ -155,7 +155,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * `subject` is considered.
    */
   def prefixes(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
-    val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace)
+    val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace, stepLimit)
     for { theMatch <- state.run(reversed=false, search = false, trace) } yield StringMatch(theMatch)
   }
 
@@ -173,8 +173,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
    */
-  def suffixes(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
-    val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace)
+  def suffixes(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
+    val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length, trace, stepLimit)
     for { theMatch <- state.run(reversed = true, search = false, trace) } yield StringMatch(theMatch)
   }
 
@@ -186,10 +186,10 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
    */
-  def matches(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
+  def matches(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
     val start = if (from>=0) from else 0
     val end =   if (to>=0)   to   else subject.length
-    val state  = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace)
+    val state  = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit)
     for { theMatch <- state.run(reversed = false, search = false, trace) if theMatch.end==end } yield StringMatch(theMatch)
   }
 
@@ -202,13 +202,13 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
    */
-  def findPrefix(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
+  def findPrefix(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
     var start = if (from>=0) from else 0
     val end   = if (to>=0)   to   else subject.length
     var result: Option[Match[Char]] = None
     // horrible, quadratic for a failing search, but appears to be necessary for the moment (see notes on `search` in `State.run`)
     while (result.isEmpty && start < end) {
-      result = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace).run(reversed = false, search = false, trace)
+      result = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit).run(reversed = false, search = false, trace)
       start += 1
     }
     for { theMatch <- result } yield StringMatch(theMatch)
@@ -222,13 +222,13 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
    */
-  def findSuffix(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
+  def findSuffix(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
     val start = if (from>=0) from else 0
     var end   = if (to>=0)   to   else subject.length
     var result: Option[Match[Char]] = None
     // horrible, quadratic for a failing search, but appears to be necessary for the moment (see notes on `search` in `State.run`)
     while (result.isEmpty && start < end) {
-      result = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), start, end, trace).run(reversed = true, search = false, trace)
+      result = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit).run(reversed = true, search = false, trace)
       end -= 1
     }
     for { theMatch <- result } yield StringMatch(theMatch)
@@ -272,14 +272,14 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
    */
-  def allPrefixes(subject: CharSequence, _from: Int = -1, _to: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
+  def allPrefixes(subject: CharSequence, _from: Int = -1, _to: Int = -1, stepLimit: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
     var first   = if (_from >=0) _from else 0
     val last    = if (_to  >=0)  _to   else subject.length
     var result: Option[StringMatch] = None
     var needsFind = true
 
     def hasNext: Boolean = {
-      if (needsFind) { result = thisRegex.findPrefix (subject, first, last); needsFind = false }
+      if (needsFind) { result = thisRegex.findPrefix (subject, first, last, stepLimit); needsFind = false }
       result.nonEmpty && result.get.end!=first
     }
 
@@ -299,14 +299,14 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    * @see allPrefixes
    *
    */
-  def allSuffixes(subject: CharSequence, _from: Int = -1, _to: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
+  def allSuffixes(subject: CharSequence, _from: Int = -1, _to: Int = -1, stepLimit: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
     val first   = if (_from >=0) _from else 0
     var last    = if (_to  >=0)  _to   else subject.length
     var result: Option[StringMatch] = None
     var needsFind = true
 
     def hasNext: Boolean = {
-      if (needsFind) { result = thisRegex.findSuffix (subject, first, last); needsFind = false }
+      if (needsFind) { result = thisRegex.findSuffix (subject, first, last, stepLimit); needsFind = false }
       result.nonEmpty && result.get.start!=last
     }
 
@@ -328,10 +328,10 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean) {
    *
    *  @see Match.substitute
    */
-  def substituteAll(input: CharSequence, template: String, literal: Boolean): (Int, String) = {
+  def substituteAll(input: CharSequence, template: String, literal: Boolean, stepLimit: Int = 0): (Int, String) = {
     val result = new StringBuilder
     val length = input.length
-    val matches = allPrefixes(input)
+    val matches = allPrefixes(input, stepLimit)
     var copyFrom = 0
     var count    = 0
     while (matches.hasNext) {

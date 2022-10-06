@@ -14,6 +14,18 @@
 
 import TestKit._
 
+"Force overuse of resources".show()
+try { find("", "abcdefg 1111111111 22 333444455555", 1000000)("""\D(\d+$)|.*+""") }
+catch { case exn: Exception => println(s"$exn")}
+
+"Non-overuse of resources".show()
+try { find("", "abcdefg 1111111111 22 333444455555", 1000000)("""\D(\d+$)""") }
+catch { case exn: Exception => println(s"$exn")}
+
+"Overuse of tight resource allowance (30)".show()
+try { find("", "abcdefg 1111111111 22 333444455555", 30)("""\D(\d+$)""") }
+catch { case exn: Exception => println(s"$exn")}
+
 search("", "fooabbggggggcde")("(a?b)+bg*?cd")
 "starts with repeats, unprefixed and unsuffixed". show()
 starts("", "abcdefg 1111111111 22 3334444 111 5555")("\\w+")
@@ -27,14 +39,16 @@ search("", "abcd1111111111 22 33344445555")("[^\\d]+(?:(\\d+)\\D)+")
 search("", "abcd1111111111 22 33344445555")("[^\\d]*(?:(\\d+)\\D)+")
 starts("", "abcd1111111111 22 33344445555")("[^\\d]+(?:(\\d+)\\D)+")
 
-"search with a leading \\D* is nonterminating -- suppressed here".show()
-// search("", "abcd1111111111 22 33344445555")("\\D*(\\d+\\D)+")
+"search with a leading \\D* is nonterminating".show()
+try  { search("", "abcd1111111111 22 33344445555", 100000)("\\D*(\\d+\\D)+") }
+catch { case exn => println(exn) }
+
 
 "SEARCHES with repeats: failure means the spans are too short, though they may end in the right place ".show()
 "trailing \\D succeeds".show()
-search("", "abcdefg 1111111111 22 333444455555")("""\D(\d+)\D""")
+search("", "abcdefg 1111111111 22 333444455555", -2)("""\D(\d+)\D""")
 "lack of trailing \\D fails".show()
-search("", "abcdefg 1111111111 22 333444455555")("""\D(\d+)""")
+search("", "abcdefg 1111111111 22 333444455555", -2)("""\D(\d+)""")
 "lack of trailing \\D in quadratic method".show()
 find("", "abcdefg 1111111111 22 333444455555")("""\D(\d+)""")
 "trailing 4? fails".show()

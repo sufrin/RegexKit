@@ -18,10 +18,13 @@ import  sufrin.regex.machine.Program._
  * See below for further detail.
  */
 
-class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false) {
+class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false, val stepLimit: Int = -1) {
   import State._
 
   private val l, r = new FibreSet(program)
+
+  private var stepsLeft  = stepLimit
+  def steps: Int = stepLimit - stepsLeft
 
   /**
    *   Each `Fibre` represents a trace of an DFA recogniser -- for the expression from which
@@ -100,6 +103,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  to capture groups accurately.
    */
   def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result = {
+    if (stepsLeft==0) throw new StepLimitExceeded() else stepsLeft -= 1
     val continuation = program(pc).execute(start, end, logPos, in, pc, groups)
     if (this.traceSteps) println(s"$pc: ${program(pc)} ($logPos, '$in', $pc) = $continuation")
     continuation match {
@@ -126,7 +130,10 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
   }
 
   /**
-   * Run the nondeterministic matcher's threads.
+   * Run the nondeterministic matcher's threads. Throw `StepLimitExceeded` if
+   * the number of matching steps exceeds the declared limit for this  state; which
+   * is set as the state is constructed.
+   *
    * @param reversed the match/search is for a suffix and is to be conducted in reverse.
    * @param search deprecated: see '''Important Note''' above.
    * @param tracePos show the position of the current input in the input sequence at
@@ -147,6 +154,9 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
     val limit     = end-start
     val incPos    = if (reversed) -1 else +1
     var result: Result = None
+
+    // Limit the number of steps for this run
+    stepsLeft = stepLimit
 
     @inline def inspectNextInput(): Unit = {
       sourcePos += incPos
@@ -240,14 +250,15 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
 
 object State {
   /**
-   * When successful, a `experiment` yields a result consisting of a
+   * When successful, a `run` yields a result consisting of a
    *  branch-number (if the compiled program was a top-level
    *  `Branched`), together with the mapping from span indexes to
    *  the spans of the subpatterns that have been matched.
    */
   type Result = Option[(Int, Groups)]
 
-  def apply[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, traceSteps: Boolean=false): State[T] =
-      new State[T](program, groups, input, start, end, traceSteps)
+  def apply[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, traceSteps: Boolean=false, stepLimit: Int=0): State[T] =
+      new State[T](program, groups, input, start, end, traceSteps, stepLimit)
 
+  class StepLimitExceeded() extends Exception("Matching step limit exceeded")
 }

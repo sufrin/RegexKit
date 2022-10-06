@@ -42,7 +42,7 @@ object TestKit {
 
   var result: Option[Match[Char]] = None
 
-  def experiment(trace: String, label: String, search: Boolean = false, subject: String, start: Int = 0)(pat: Source): Unit = {
+  def experiment(trace: String, label: String, search: Boolean = false, subject: String, start: Int = 0, stepLimit: Int = -1 )(pat: Source): Unit = {
     var showCode = false
     var showTree = false
     var showReversed = false
@@ -65,32 +65,33 @@ object TestKit {
     if (showReversed) PrettyPrint.prettyPrint(pat.pat.reversed)
 
     if (doRun) {
-      val state = new State[Char](compiled, Groups.empty, subject, start, subject.length, traceSteps)
+      val state = new State[Char](compiled, Groups.empty, subject, start, subject.length, traceSteps, stepLimit)
       result = state.run(reversed = false, search, tracePos)
+      if (stepLimit != -1 ) println(s"In ${state.steps} steps ")
       for {r <- result} println(s" => $r ")
     }
   }
 
   def parse(pat: String): Tree[Char] = new Parser(pat).tree
 
-  def search(trace: String = "", subject: String)(pat: String): Unit = {
+  def search(trace: String = "", subject: String, stepLimit: Int = -1)(pat: String): Unit = {
     val tree = new Parser(pat).tree
-    experiment(trace, s"search: $pat", search = true, subject)(Source(tree, trace contains 'c'))
+      experiment(trace, s"search: $pat", search = true, subject, stepLimit = stepLimit)(Source(tree, trace contains 'c'))
   }
 
-  def starts(trace: String = "", subject: String)(pat: String): Unit = {
+  def starts(trace: String = "", subject: String, stepLimit: Int = -1)(pat: String): Unit = {
     val tree = new Parser(pat).tree
-    experiment(trace, s"starts: $pat", search = false, subject)(Source(tree, trace contains 'c'))
+    experiment(trace, s"starts: $pat", search = false, subject, stepLimit = stepLimit)(Source(tree, trace contains 'c'))
   }
 
 
   /** Quadratic findPrefix, using sliding prefix experiment */
-  def find(trace: String, subject: String)(pat: String): Unit = {
+  def find(trace: String, subject: String, stepLimit: Int = -1)(pat: String): Unit = {
     val tree = new Parser(pat).tree
     var start = 0
     result = None
     while (result.isEmpty && start < subject.length) {
-      experiment(trace, s"find: $pat", search = false, subject, start)(Source(tree, trace contains 'c'))
+      experiment(trace, s"find: $pat", search = false, subject, start, stepLimit = stepLimit)(Source(tree, trace contains 'c'))
       result match {
         case Some(matched) => start = matched.end
         case None => start += 1
@@ -99,12 +100,12 @@ object TestKit {
   }
 
   /** Quadratic allPrefixes, using sliding prefix experiment */
-  def findAllTrees(trace: String, subject: String)(pat: Tree[Char]): Unit = {
+  def findAllTrees(trace: String, subject: String, stepLimit: Int = -1)(pat: Tree[Char]): Unit = {
     var start = 0
     result = None
     val patSource = Source(pat, trace contains 'c')
     while (start < subject.length) {
-      experiment(trace, "", search = false, subject, start)(patSource)
+      experiment(trace, "", search = false, subject, start, stepLimit = stepLimit)(patSource)
       result match {
         case Some(matched) => start = matched.end
         case None => start += 1
@@ -112,22 +113,22 @@ object TestKit {
     }
   }
 
-  def findAll(trace: String, subject: String)(pat: String): Unit =
-    findAllTrees(trace, subject)(new Parser(pat).tree)
+  def findAll(trace: String, subject: String, stepLimit: Int = -1)(pat: String): Unit =
+    findAllTrees(trace, subject, stepLimit)(new Parser(pat).tree)
 
-  def findAllBranches(trace: String, subject: String)(pats: String*): Unit = {
+  def findAllBranches(trace: String, subject: String, stepLimit: Int = -1)(pats: String*): Unit = {
     val trees = for {pat <- pats} yield new Parser(pat).tree
     val tree = Branched(trees)
-    findAllTrees(trace, subject)(tree)
+    findAllTrees(trace, subject, stepLimit)(tree)
   }
 
-  def all(trace: String, subject: String)(pat: String): Unit = {
+  def all(trace: String, subject: String, stepLimit: Int = -1)(pat: String): Unit = {
     val tree = new Parser(pat).tree
     result = None
     var start = 0
     var go = true
     while (go) {
-      experiment(trace, s"all: $pat", search = true, subject, start)(Source(tree, trace contains 'c'))
+      experiment(trace, s"all: $pat", search = true, subject, start, stepLimit = stepLimit)(Source(tree, trace contains 'c'))
       result match {
         case Some(matched) => start = matched.end
         case None => go = false
