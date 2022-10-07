@@ -18,13 +18,14 @@ import  sufrin.regex.machine.Program._
  * See below for further detail.
  */
 
-class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false, val stepLimit: Int = -1) {
+class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start: Int, end: Int, var traceSteps: Boolean=false, val stepLimit: Int = -1, val initialSteps: Int = 0) {
   import State._
 
   private val l, r = new FibreSet(program)
 
-  private var stepsLeft  = stepLimit
-  def steps: Int = stepLimit - stepsLeft
+  private var stepsLeft  = stepLimit-initialSteps
+  def steps: Int      = stepLimit - stepsLeft
+  def totalSteps: Int = steps + initialSteps
 
   @inline def checkSteps(): Unit = if (stepsLeft==0) throw new StepLimitExceeded() else stepsLeft -= 1
 
@@ -237,7 +238,7 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
      */
     result match {
       case None => None
-      case Some((index, groups)) => Some(wrap(steps, input, index, groups))
+      case Some((index, groups)) => Some(wrap(totalSteps, input, index, groups))
      }
   }
 

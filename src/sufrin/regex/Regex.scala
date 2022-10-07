@@ -209,9 +209,14 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
     var start = if (from>=0) from else 0
     val end   = if (to>=0)   to   else subject.length
     var result: Option[Match[Char]] = None
-    // horrible, quadratic for a failing search, but appears to be necessary for the moment (see notes on `search` in `State.run`)
+    var steps: Int = 0
+    // Quadratic in `to-from` for a failing search, but expedient for the moment -- and editor texts aren't tremendously long
+    // TODO: use the faster "recogniser" method for a pattern without capturing groups (see notes on `search` in `State.run`)
+    // TODO: (maybe) hybrid recogniser+capturer could be more efficient  (see notes on `search` in `State.run`)
     while (result.isEmpty && start < end) {
-      result = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit).run(reversed = false, search = false, trace)
+      val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit, steps)
+      result = state.run(reversed = false, search = false, trace)
+      steps+=state.steps
       start += 1
     }
     for { theMatch <- result } yield StringMatch(theMatch)
@@ -229,11 +234,14 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
     val start = if (from>=0) from else 0
     var end   = if (to>=0)   to   else subject.length
     var result: Option[Match[Char]] = None
+    var steps: Int = 0
     // Quadratic in `to-from` for a failing search, but expedient for the moment -- and editor texts aren't tremendously long
     // TODO: use the faster "recogniser" method for a pattern without capturing groups (see notes on `search` in `State.run`)
     // TODO: (maybe) hybrid recogniser+capturer could be more efficient  (see notes on `search` in `State.run`)
     while (result.isEmpty && start < end) {
-      result = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit).run(reversed = true, search = false, trace)
+      val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit, steps)
+      result = state.run(reversed = true, search = false, trace)
+      steps+=state.steps
       end -= 1
     }
     for { theMatch <- result } yield StringMatch(theMatch)
