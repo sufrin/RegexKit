@@ -73,7 +73,8 @@ matching and searching methods may be given an upper bound to
 the number of recognition machine cycles they execute that
 causes them to abort if it is exceeded. *This is a pragmatic and expedient
 solution to the performance issues that would arise from an attempt to
-detect non termination: we may 
+detect non termination: we find a more efficient method of non-termination
+detection in due course; but it's not a priority for us.*
 
 ## Examples
 
