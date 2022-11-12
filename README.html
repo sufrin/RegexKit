@@ -1,0 +1,94 @@
+<h1 id="regexkit">RegexKit</h1>
+<h2 id="introduction">Introduction</h2>
+<p><code>RegexKit</code> provides an implementation of (more or less) standard regular expression matching and group capture, forwards or backwards, over subsequences of sequences of arbitrary type. It was implemented because the standared Java/Scala API was too restrictive for my application -- a text editor.</p>
+<p>Its <code>CharSequence</code> matching facilities are well-developed and tested (genericity came as an unplanned bonus). <strong>There is no backtracking for anchored matches</strong> which -- in the case of a failure -- take bounded time: proportional to the product of the 'lengths' of the regular expression and the subject subsequence.</p>
+<p>The principal methods of the API are the matching and searching methods of <code>Regex</code> that act on specified subsequences of the given subject:</p>
+<pre><code>  // anchored methods
+  def suffixes   (subject: CharSequence, from: Int, to: Int,   bound: Int): Option[StringMatch] 
+  def matches    (subject: CharSequence, from: Int, to: Int,   bound: Int): Option[StringMatch] 
+
+  // searching methods
+  def findPrefix (subject: CharSequence, from: Int, to: Int,   bound: Int): Option[StringMatch] 
+  def findSuffix (subject: CharSequence, from: Int, to: Int,   bound: Int): Option[StringMatch]
+
+  // repeated searches
+  def allPrefixes(subject: CharSequence, _from: Int, _to: Int, bound: Int): Iterator[StringMatch] 
+  def allSuffixes(subject: CharSequence, _from: Int, _to: Int, bound: Int): Iterator[StringMatch]
+</code></pre>
+<p>and its substitution method, that substitutes an expanded instance of the template for each matching instance of this regular expression in the input. Return the substituted result with a count of the number of substitutions that were made. When <code>literal</code> is true, the template is not expanded.</p>
+<pre><code>  def substituteAll(subject: CharSequence, template: String, literal: Boolean, bound: Int): (Int, String)</code></pre>
+<p>An individual <code>StringMatch</code> has a substitute method that replaces all occurences of "$<span class="math inline">$" in the template with "$</span>", and all occurences of <code>$i</code> (when <code>i</code> is a digit) with <code>group(i).getOrElse("")</code>.</p>
+<pre><code>   def substitute(template: String): String</code></pre>
+<p>The API also provides methods for scanning forwards and backwards for (properly-nested) bracketed text, whose opening and closing brackets are specified by regular expressions.</p>
+<h2 id="implementation-method">Implementation method</h2>
+<p>Regular expressions are translated into code for an abstract "recognition machine". During matching, the machine simulates a nondeterministic finite state machine by running simulated deterministic machines (we call them <em>threads</em>) in pseudo-parallel: one for each unrefuted potential match (a deterministic match is refuted by an input that fails to match an outgoing edge from its current state).</p>
+<p>Subject sequences are offered element by element to the machine and each active <em>thread</em> either accepts, refutes, or moves to its next state.</p>
+<p>The translation from regular expression to recognition machine code is straightforward, and no attempt is made to tarnsform the expression into a more efficient form, <em>or to a form that cannot (under some circumstances) cause non-termination</em>. With this in mind, the matching and searching methods may be given an upper bound to the number of recognition machine cycles they execute that causes them to abort if it is exceeded. *This is a pragmatic and expedient solution to the performance issues that would arise from an attempt to detect non termination: we may</p>
+<h2 id="examples">Examples</h2>
+<p>The following examples are abstracted, somewhat edited, from the source code of the <code>Red</code> text editor.</p>
+<p>Patterns matching the left and right boundaries of various granularities of text lump.</p>
+<pre><code>
+   object Boundaries {
+    import sufrin.regex.Regex
+    val leftWord  : Regex   = Regex(&quot;&quot;&quot;\W\w&quot;&quot;&quot;)
+    val rightWord : Regex   = Regex(&quot;&quot;&quot;\w\W&quot;&quot;&quot;)
+    val leftLine  : Regex   = Regex(&quot;&quot;&quot;(\n|^)[^\n]*&quot;&quot;&quot;)
+    val rightLine : Regex   = Regex.literal(&quot;\n&quot;) 
+    val leftPara  : Regex   = Regex(&quot;(\n|^)\\s*\n&quot;)
+    val rightPara : Regex   = Regex(&quot;\n\\s*(\n|$)&quot;)
+   }
+</code></pre>
+<p>This method performs a search, around the <code>start</code>, for a "chunk" (a word, line, or paragraph) whose left and right boundaries are specified by the regular expressions <code>l</code> and <code>r</code>. It returns the left and right boundaries of the chunk.</p>
+<pre><code>
+def selectChunk(start: Int, l: Regex, r: Regex, adjl: Int, adjr: Int): Option[(Int, Int)] =
+    // find the last suffix matching l that ends no later than start
+    l.findSuffix(document.characters, 0, start) match {
+      // no such suffix
+      case None =&gt; None
+      // suffix extends from lp.start to lp.end
+      // find the next prefix that starts no earlier than lp.end
+      case Some(lp) =&gt;
+        r.findPrefix(document.characters, lp.end, document.characters.length) match {
+          // no such suffix
+          case None =&gt; None
+          // suffix extends from rp.start to rp.end
+          // chunk extends from lp.start to rp.end
+          case Some(rp) =&gt;
+            val (start, end) =
+                (if (lp.start == 0) lp.start else lp.start + adjl, rp.end - adjr)
+            Some((start, end))
+        }
+    }</code></pre>
+<p>This method performs an unanchored search from the current cursor position in the indicated direction.</p>
+<pre><code>
+  def find(pattern: String, backwards: Boolean, literal: Boolean): Boolean = {
+      val chars = document.characters
+      try {
+        val regex = if (lit) Regex.literal(pattern) else Regex(pattern)
+        if (backwards) {
+          val lastMatch = regex.findSuffix(chars, 0, cursor, Utils.stepLimit)
+          lastMatch match {
+            case None           =&gt; feedback.notify(&quot;Not found upwards&quot;, s&quot;$pattern&quot;)
+                                   false
+            case Some(instance) =&gt; cursor = instance.start
+                                   setMark(instance.end)
+                                   true
+          }
+        } else {
+          val nextMatch = regex.findPrefix(chars, cursor, chars.length, Utils.stepLimit)
+          nextMatch match {
+            case None           =&gt; feedback.notify(&quot;Not found&quot;, s&quot;$pattern&quot;)
+                                   false
+            case Some(instance) =&gt; cursor = instance.end min (chars.length-1)
+                                   setMark(instance.start)
+                                   true
+          }
+        }
+      } catch { case exn: sufrin.regex.syntax.lexer.SyntaxError =&gt;
+                notify(&quot;Find&quot;, s&quot;Pattern: &quot;$pattern&quot; is ill-formed\n${exn.getMessage}&quot;)
+                false }
+    }
+  </code></pre>
+<p>The search is for <code>pattern</code> interpreted either as a literal or as a regular expression. The cursor is moved to the start of the match, and the <em>mark</em> (the other end of the selection) is moved to the opposite end.</p>
+<pre><code>    Bernard Sufrin
+    Oxford, 2020</code></pre>
