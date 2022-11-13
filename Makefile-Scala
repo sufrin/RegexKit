@@ -49,6 +49,7 @@ show:    ; @echo SOURCE FILES $(SOURCEFILES)
 doc::    $(DOC)
 jar::    $(JAR)
 
+README.md: README/README.md; egrep -v "newpage|\\.\\.\\.|{scriptsize}|^[A-Za-z]+:.+$$" README/README.md > README.md
 
 $(JAR):     $(SOURCEFILES); $(SCALAC) $(SFLAGS)  -d $(JAR) $(SOURCEFILES)
 $(DOC):     $(SOURCEFILES); mkdir -p $(DOC) ; $(SCALADOC) -cp $(CP) -d $(DOC) $(SOURCEFILES) 

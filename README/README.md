@@ -1,4 +1,8 @@
 ---
+title:  RegexKit
+author: Bernard Sufrin
+date:   Oxford, May 2022
+...
 
 
 ## Introduction
@@ -24,6 +28,7 @@ matching and searching methods of `Regex` that act on specified
 subsequences of the given subject:
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
   // anchored methods
@@ -43,6 +48,7 @@ subsequences of the given subject:
 
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 and its substitution method, that substitutes an expanded instance
 of the template for each matching instance of this regular expression
@@ -51,22 +57,26 @@ number of substitutions that were made. When `literal` is true, the
 template is not expanded.
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
   def substituteAll(subject: CharSequence, template: String, literal: Boolean, bound: Int): (Int, String)
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 
 An individual `StringMatch` has a substitute method that replaces all occurences of `$$` in the template with `$`,
 and all occurences of `$`*i* (when *i* is a digit) with `group(`*i*`).getOrElse("")`.
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
    def substitute(template: String): String
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 
 The API also provides methods for scanning forwards and backwards for (properly-nested) bracketed text,
@@ -82,6 +92,7 @@ Patterns matching the left and right boundaries of various granularities
 of text lump.
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
    object Boundaries {
@@ -96,6 +107,7 @@ of text lump.
 
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 
 The method `selectChunk` performs a search, around the `start`, for
@@ -104,6 +116,7 @@ right boundaries are specified by the regular expressions `l` and
 `r`. It returns the left and right boundaries of the chunk.
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
 
@@ -128,14 +141,17 @@ def selectChunk(start: Int, l: Regex, r: Regex, adjl: Int, adjr: Int): Option[(I
     }
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 
 ```{=tex}
+\newpage
 ```
 The method `find` performs an unanchored search from the current cursor
 position in the indicated direction.
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
   def find(pattern: String, backwards: Boolean, literal: Boolean): Boolean = {
@@ -168,6 +184,7 @@ position in the indicated direction.
   
 ```
 ```{=tex}
+\end{scriptsize}
 ```          
 
 The search is for `pattern` interpreted either as a literal or as a regular
@@ -192,14 +209,17 @@ the state of the NFA, this "move" results in the construction of one
 (or more) additional *threads*. For example
 
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
         r1 | r2 | r3
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 translates to (the equivalent) of
 ```{=tex}
+\begin{scriptsize}
 ```
 ```
           goto L1, L2, L3
@@ -211,6 +231,7 @@ translates to (the equivalent) of
      END:          
 ```
 ```{=tex}
+\end{scriptsize}
 ```
 A deterministic match is refuted by an input that fails to match
 any outgoing edge from its current state; the corresponding machine
