@@ -1,5 +1,5 @@
 
 *.class
 trace
-LISTING.pdf
+*.pdf
 out/*
