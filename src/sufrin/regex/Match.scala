@@ -60,7 +60,7 @@ trait Match[T] {
     }
   }
 
-  override def toString: String = s"/${allMatched.mkString("\"", "\", \"", "\"")}/ $groups ($index) #$steps => "
+  override def toString: String = s"/${allMatched.mkString("\"", "\", \"", "\"")}/ $groups (#$index) Steps:$steps => "
 }
 
 object Match {

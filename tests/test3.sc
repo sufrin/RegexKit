@@ -61,8 +61,8 @@ realPatPlus.findPrefix("aaa1234.e-60aaaa") . show()
 realPatStar.findSuffix("aaa1234.e-60aaaa") . show()
 realPatPlus.findSuffix("aaa1234.e-60aaaa") . show()
 
-val revPatStar = Regex(realPatStar.tree.reversed, false, false)
-val revPatPlus = Regex(realPatStar.tree.reversed, false, false)
+val revPatStar = Regex.fromTree(realPatStar.tree.reversed, false, false)
+val revPatPlus = Regex.fromTree(realPatStar.tree.reversed, false, false)
 // revPatStar.tree == realPatStar.tree.reversed
 revPatStar.prefixes("1234.567e6".reverse) . show()
 //revPatPlus.tree == realPatStar.tree.reversed

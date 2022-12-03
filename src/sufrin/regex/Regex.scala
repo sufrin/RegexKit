@@ -1,7 +1,7 @@
 package sufrin.regex
 
 import sufrin.regex.machine.{Groups, State}
-import sufrin.regex.syntax.{Tree,Parser}
+import sufrin.regex.syntax.{Branched, Parser, Tree}
 
 import java.util.NoSuchElementException
 
@@ -10,12 +10,12 @@ object Regex {
 
   /** A literal matcher */
   def literal(string: String): Regex = {
-      import sufrin.regex.syntax.{Seq,Literal}
+      import sufrin.regex.syntax.{Literal, Seq}
       val tree = Seq(string.map(Literal(_)))
-      Regex(tree, false, false)
+      Regex.fromTree(tree, false, false)
   }
 
-  /** Compile the guarded forms of `R*` and `R?` */
+    /** Compile the guarded forms of `R*` and `R?` */
   var guarding: Boolean = false
 
   /** Value class representing a successful match */
@@ -38,6 +38,9 @@ object Regex {
      *   The string captured in the group numbered `i`
      */
     def group(i: Int): String = theMatch.toStrings(i)
+
+    def group(i: Int, alt: String): String =
+      if (i<theMatch.groupCount) theMatch.toStrings(i) else alt
 
     /**
      *   An iterable over the groups captured in the match
@@ -101,8 +104,8 @@ object Regex {
    * @param showCode print the compiled code of the automaton after compilation
    * @param trace trace the running automaton during searches/matches.
    */
-  def apply(source: String,   showCode: Boolean = false, trace: Boolean = false): Regex =
-      new Regex(new Parser(source).tree, showCode, trace)
+  def apply(source: String,   showCode: Boolean = false, trace: Boolean = false, stepLimit: Int=0): Regex =
+      new Regex(new Parser(source).tree, showCode, trace, stepLimit)
 
   /**
    * @see Regex
@@ -111,8 +114,36 @@ object Regex {
    * @param showCode print the compiled code of the automaton after compilation
    * @param trace trace the running automaton during searches/matches.
    */
-   def apply(tree: Tree[Char], showCode: Boolean, trace: Boolean): Regex =
-       new Regex(tree, showCode, trace)
+   def fromTree(tree: Tree[Char], showCode: Boolean=false, trace: Boolean=false, stepLimit: Int=0): Regex =
+       new Regex(tree, showCode, trace, stepLimit)
+
+  /**
+   * Constructs a `Branched` regular expression from the given components
+   * @param components already-built regular expressions
+   * @param showCode print the compiled code of the automaton after compilation
+   * @param trace trace the running automaton during searches/matches
+   * @param stepLimit upper bound on the number of steps the automaton takes (0 means unbounded)
+   * @return the composite `Branched` regular expression
+   *
+   * Branched expressions are suitable for use in
+   */
+   def fromRegexes(components: Seq[Regex], showCode: Boolean=false, trace: Boolean=false, stepLimit: Int=0): Regex = {
+       val trees = components.map(_.tree)
+       new Regex(syntax.Branched(trees, false), showCode, trace, stepLimit)
+    }
+
+  /**
+   * Constructs a `Branched` regular expression from the given sources
+   * @param sources
+   * @param showCode print the compiled code of the automaton after compilation
+   * @param trace trace the running automaton during searches/matches
+   * @param stepLimit upper bound on the number of steps the automaton takes (0 means unbounded)
+   * @return the composite `Branched` regular expression
+   */
+   def fromSources(sources: Seq[String], showCode: Boolean=false, trace: Boolean=false, stepLimit: Int=0): Regex = {
+       val trees = for { source <- sources } yield new Parser(source).tree
+       new Regex(syntax.Branched(trees, false), showCode, trace, stepLimit)
+    }
 
 }
 
@@ -141,11 +172,11 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
 
   import sufrin.regex.Regex.StringMatch
 
-  /** The code for use in forward-matching operations: compiled on demand  */
+  /** The code for use in forward-matching operations: compiled on demand */
   lazy val forwardCode = tree.compile(reverse = false, showCode = showCode)
 
-  /** The code for use in reverse-matching operations: compiled on demand  */
-  lazy val reverseCode = tree.compile(reverse = true,  showCode = showCode)
+  /** The code for use in reverse-matching operations: compiled on demand */
+  lazy val reverseCode = tree.compile(reverse = true, showCode = showCode)
 
   override def toString: String = s"Regex(${tree.source})"
 
@@ -158,14 +189,15 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * `subject` is considered.
    */
   def prefixes(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
-    val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length , trace, stepLimit)
-    for { theMatch <- state.run(reversed=false, search = false, trace) } yield StringMatch(theMatch)
+    val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from >= 0) from else 0, if (to >= 0) to else subject.length, trace, stepLimit)
+    for {theMatch <- state.run(reversed = false, search = false, trace)} yield StringMatch(theMatch)
   }
 
   /** Human-readable form of `forwardCode`, including instruction addresses. */
-  def forwardCodeListing: String = (for {i<-0 until forwardCode.length} yield s"$i\t${forwardCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+  def forwardCodeListing: String = (for {i <- 0 until forwardCode.length} yield s"$i\t${forwardCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+
   /** Human-readable form of `reverseCode`, including instruction addresses. */
-  def reverseCodeListing: String = (for {i<-0 until reverseCode.length} yield s"$i\t${reverseCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
+  def reverseCodeListing: String = (for {i <- 0 until reverseCode.length} yield s"$i\t${reverseCode(i)}").mkString(s"${tree.source}\n", "\n", "\n")
 
   /**
    * If the expression matches a suffix of {{{subject[from..to)}}} return `Some(it)`, where `it` is the
@@ -177,8 +209,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * `subject` is considered.
    */
   def suffixes(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
-    val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), if (from>=0) from else 0, if (to>=0) to else subject.length, trace, stepLimit)
-    for { theMatch <- state.run(reversed = true, search = false, trace) } yield StringMatch(theMatch)
+    val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), if (from >= 0) from else 0, if (to >= 0) to else subject.length, trace, stepLimit)
+    for {theMatch <- state.run(reversed = true, search = false, trace)} yield StringMatch(theMatch)
   }
 
   /**
@@ -190,10 +222,10 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * `subject` is considered.
    */
   def matches(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
-    val start = if (from>=0) from else 0
-    val end =   if (to>=0)   to   else subject.length
-    val state  = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit)
-    for { theMatch <- state.run(reversed = false, search = false, trace) if theMatch.end==end } yield StringMatch(theMatch)
+    val start = if (from >= 0) from else 0
+    val end = if (to >= 0) to else subject.length
+    val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit)
+    for {theMatch <- state.run(reversed = false, search = false, trace) if theMatch.end == end} yield StringMatch(theMatch)
   }
 
   /**
@@ -206,8 +238,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * `subject` is considered.
    */
   def findPrefix(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
-    var start = if (from>=0) from else 0
-    val end   = if (to>=0)   to   else subject.length
+    var start = if (from >= 0) from else 0
+    val end = if (to >= 0) to else subject.length
     var result: Option[Match[Char]] = None
     var steps: Int = 0
     // Quadratic in `to-from` for a failing search, but expedient for the moment -- and editor texts aren't tremendously long
@@ -216,11 +248,12 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
     while (result.isEmpty && start < end) {
       val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit, steps)
       result = state.run(reversed = false, search = false, trace)
-      steps+=state.steps
+      steps += state.steps
       start += 1
     }
-    for { theMatch <- result } yield StringMatch(theMatch)
+    for {theMatch <- result} yield StringMatch(theMatch)
   }
+
   /**
    * If there is a matching suffix of  {{{subject[from..to)}}} return `Some(it)`  where `it` is the match
    * that ends closest to `to`; otherwise return `None`
@@ -231,8 +264,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * `subject` is considered.
    */
   def findSuffix(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
-    val start = if (from>=0) from else 0
-    var end   = if (to>=0)   to   else subject.length
+    val start = if (from >= 0) from else 0
+    var end = if (to >= 0) to else subject.length
     var result: Option[Match[Char]] = None
     var steps: Int = 0
     // Quadratic in `to-from` for a failing search, but expedient for the moment -- and editor texts aren't tremendously long
@@ -241,10 +274,10 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
     while (result.isEmpty && start < end) {
       val state = new State[Char](reverseCode, Groups.empty, IndexedCharSeq(subject), start, end, trace, stepLimit, steps)
       result = state.run(reversed = true, search = false, trace)
-      steps+=state.steps
+      steps += state.steps
       end -= 1
     }
-    for { theMatch <- result } yield StringMatch(theMatch)
+    for {theMatch <- result} yield StringMatch(theMatch)
   }
 
   /**
@@ -277,7 +310,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    *    List(0.001234567, 0.001234567, 2.3E-4,
    *         0.001234567, 0.001234567, 2.3E-4,
    *         0.001234567, 0.001234567, 2.3E-4)
-   *}}}
+   * }}}
    *
    *
    * '''Defaults:'''
@@ -286,14 +319,16 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * `subject` is considered.
    */
   def allPrefixes(subject: CharSequence, _from: Int = -1, _to: Int = -1, stepLimit: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
-    var first   = if (_from >=0) _from else 0
-    val last    = if (_to  >=0)  _to   else subject.length
+    var first = if (_from >= 0) _from else 0
+    val last = if (_to >= 0) _to else subject.length
     var result: Option[StringMatch] = None
     var needsFind = true
 
     def hasNext: Boolean = {
-      if (needsFind) { result = thisRegex.findPrefix (subject, first, last, stepLimit); needsFind = false }
-      result.nonEmpty && result.get.end!=first
+      if (needsFind) {
+        result = thisRegex.findPrefix(subject, first, last, stepLimit); needsFind = false
+      }
+      result.nonEmpty && result.get.end != first
     }
 
     def next(): StringMatch = {
@@ -305,22 +340,25 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
       else throw new NoSuchElementException(s"$thisRegex.allPrefixes iterator ran out")
     }
   }
+
   /**
-   *  Return an iterator over the sequence of non-overlapping ''suffixes''
+   * Return an iterator over the sequence of non-overlapping ''suffixes''
    * within `subject[from..to)`.
    *
    * @see allPrefixes
    *
    */
   def allSuffixes(subject: CharSequence, _from: Int = -1, _to: Int = -1, stepLimit: Int = -1): Iterator[StringMatch] = new Iterator[StringMatch] {
-    val first   = if (_from >=0) _from else 0
-    var last    = if (_to  >=0)  _to   else subject.length
+    val first = if (_from >= 0) _from else 0
+    var last = if (_to >= 0) _to else subject.length
     var result: Option[StringMatch] = None
     var needsFind = true
 
     def hasNext: Boolean = {
-      if (needsFind) { result = thisRegex.findSuffix (subject, first, last, stepLimit); needsFind = false }
-      result.nonEmpty && result.get.start!=last
+      if (needsFind) {
+        result = thisRegex.findSuffix(subject, first, last, stepLimit); needsFind = false
+      }
+      result.nonEmpty && result.get.start != last
     }
 
     def next(): StringMatch = {
@@ -333,37 +371,70 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
     }
   }
 
+  val arity: Int = tree match { case Branched(branches, _) => branches.length; case _ => 1 }
+
   /**
-   *  Substitute an expanded instance of the template for each matching instance of this
-   *  regular expression in the input. Return the substituted result with a count of
-   *  the number of substitutions that were made. When `literal` is true, the template is
-   *  not expanded.
+   * When this `Regex` is *not* formed from a `Branched`, this yields the simple rewriting of each of its matching instances
+   * in `input` by the expansion of `templates(0)` (or, if `literal`, its literal text). The rewritten text is returned
+   * together with a count of the number of substitutions that were made. The groups of each branch are referenced
+   * from 1.
    *
-   *  @see Match.substitute
+   * When this `Regex` *is*  formed as a `Branch`, the  template used in each rewrite is the template corresponding to
+   * (the index of) the matching instance. There must be at least as many templates as there are branches.
+   *
+   * @see Match.substitute
    */
-  def substituteAll(input: CharSequence, template: String, literal: Boolean, stepLimit: Int = 0): (Int, String) = {
+
+  def rewriteAll(input: CharSequence, templates: Seq[String], literal: Boolean, stepLimit: Int = 0): (Int, String) = {
     val result = new StringBuilder
     val length = input.length
     val matches = allPrefixes(input, stepLimit)
     var copyFrom = 0
-    var count    = 0
+    var count = 0
+    if (arity>templates.length) throw new IllegalArgumentException(s"rewriteAll: not enough templates (${templates.length}) to rewrite using $this ")
     while (matches.hasNext) {
       count += 1
       val instance = matches.next()
-      while (copyFrom<instance.start) {
+      while (copyFrom < instance.start) {
         result.addOne(input.charAt(copyFrom))
         copyFrom += 1
       }
-      result.addAll(if (literal) template else instance.substitute(template))
+      val theTemplate = templates(instance.theMatch.index)
+      result.addAll(if (literal) theTemplate else instance.substitute(theTemplate))
       copyFrom = instance.end
     }
     // run out the tail
-    while (copyFrom<length) {
+    while (copyFrom < length) {
       result.addOne(input.charAt(copyFrom))
       copyFrom += 1
     }
     (count, result.toString())
   }
 
-}
+  def substituteAll(input: CharSequence, template: String, literal: Boolean, stepLimit: Int = 0): (Int, String) =
+    rewriteAll(input, List(template), literal, stepLimit)
 
+  /**
+   * Return an iterator that yields a `SYM` for each match in `input` of (one of the components of)
+   * this (composite, `Branched`) regular expression. Each match is mapped to a corresponding `SYM`
+   * by applying `mappers(index)`, where `index` is the index of the component pattern in the
+   * (composite, `Branched`) pattern.
+   *
+   * @param input
+   * @param mappers functions corresponding to the index of each match of this expression in the input
+   * @param stepLimit upper bound on the number of recogniser steps
+   * @tparam SYM
+   * @return an iterator over the `SYM`s corresponding to matches of this regular expression
+   */
+  def allSymbols[SYM](input: CharSequence, mappers: Seq[StringMatch=>SYM], stepLimit: Int=0): Iterator[SYM] = new Iterator[SYM] {
+      val matches = allPrefixes(input, stepLimit)
+      if (arity>mappers.length) throw new IllegalArgumentException(s"allSymbols: not enough mappers for $this ($arity > ${mappers.length})")
+      def hasNext: Boolean = matches.hasNext
+      def next(): SYM = {
+        val instance  = matches.next()
+        val theMapper = mappers(instance.theMatch.index)
+        theMapper(instance)
+      }
+  }
+
+}
