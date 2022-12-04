@@ -1,7 +1,7 @@
 ---
 title:  RegexKit
 author: Bernard Sufrin
-date:   Oxford, May 2022
+date:   Oxford, May and December 2022
 ...
 
 
@@ -190,6 +190,106 @@ position in the indicated direction.
 The search is for `pattern` interpreted either as a literal or as a regular
 expression. The cursor is moved to the start of the match, and the *mark*
 (the other end of the selection) is moved to the opposite end.
+
+## Branched Regular Expressions
+
+A *branched* `Regex` is a `Regex` consisting of 1 or more branches,
+each of which is effectively an independent `Regex`. A *1-branched*
+`Regex` is effectively equivalent to an ordinary `Regex`, and all
+methods of a `Regex` can be used from a branched Regex.
+
+A branched `Regex` matches, in effect, as an alternation of its
+components. But the `Match` or `StringMatch` objects that it
+yields make available an $index$, that indicates which of
+the component expressions actually matched; and the grouping
+numbers of *each* component are indexed from 0:
+unlike those of an "ordinary" alternation. Branched expresisons
+make it convenient to:
+
+  * Perform multiple simultaneous substitutions
+  * Perform lexical-scans
+
+The following convenience functions may be used to generate branched
+regular expressions: 
+```{=tex}
+\begin{scriptsize}
+```
+```
+Regex.fromSources(sources: Seq[String], ... ):  Regex 
+Regex.fromRegexes(regexes: Seq[Regex],  ...):   Regex 
+```
+```{=tex}
+\end{scriptsize}
+```          
+
+### Simultaneous Substitution
+The following method, a sort of simultaneous `substituteAll`
+in `input`, is designed specifically for use from branched regular expressions.
+The  template used in each individual rewrite is the template
+corresponding to (the index of) the matching instance.  There must
+be at least as many templates as there are branches of `re`. The
+groups of each  instance are numbered from 1. 
+```{=tex}
+\begin{scriptsize}
+```
+```
+  re.rewriteAll(input: CharSequence, templates: Seq[String], literal: Boolean, stepLimit: Int = 0): (Int, String)
+```
+```{=tex}
+\end{scriptsize}
+```
+
+For example, the following code drops leading uppercase letters from letter-sequences, and turns `{` into `<<`, and `}` into `>>`.
+```{=tex}
+\begin{scriptsize}
+```
+```
+val re = Regex.fromSources(List("([A-Z]+)([a-z]+)", "[{]", "[}]", ... )
+    re.rewriteAll(input, List("$2", "<<", ">>"), ...
+
+```
+```{=tex}
+\end{scriptsize}
+```          
+
+
+### Lexical Scanning
+The following method  yields a sort of lexical scanner: namely an iterator
+that applies one of the `mappers` to each of the instances of `re`
+in the input.  The  mapper used in each case is that corresponding
+to (the index of) the matching instance.  There must be at least
+as many mappers as there are branches of `re`. The groups of each
+instance are numbered from 1.
+```{=tex}
+\begin{scriptsize}
+```
+```
+  re.allSymbols[SYM](input: CharSequence, mappers: Seq[StringMatch=>SYM], ...): Iterator[SYM] 
+```
+```{=tex}
+\end{scriptsize}
+```          
+
+For example, the following code yields an iterator that classifies
+successive subsequences of `input` into `Param`s, `Identifier`s or
+`Noise`. A `Param` takes the form  `${digits}` or `$digit`.
+```{=tex}
+\begin{scriptsize}
+```
+```
+val digits:  StringMatch => Symbol = { case  StringMatch(_, ds) => Param(ds.toInt) }
+val letters: StringMatch => Symbol = { case  StringMatch(_, ls) => Identifier(ls) }
+val noise:   StringMatch => Symbol = { case  StringMatch(_)  => Noise }
+
+val re = Regex.fromSources(List("[$]{([0-9]+)}", "[$]([0-9])", "([A-Za-z][A-Za-z0-9])", ".+"), ... )
+    re.allSymbols(input, List(digits, digits, letters, noise), ...)
+
+```
+```{=tex}
+\end{scriptsize}
+```          
+
+
 
 ## Implementation method
 

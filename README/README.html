@@ -23,7 +23,7 @@
 <header id="title-block-header">
 <h1 class="title">RegexKit</h1>
 <p class="author">Bernard Sufrin</p>
-<p class="date">Oxford, May 2022</p>
+<p class="date">Oxford, May and December 2022</p>
 </header>
 <h2 id="introduction">Introduction</h2>
 <p><code>RegexKit</code> provides an implementation of (more or less) standard regular expression matching and group capture, <strong>forwards or backwards</strong>, over (subsequences of) sequences of arbitrary type. We designed it because the standared Java/Scala API was too restrictive for our application – a text editor.</p>
@@ -111,6 +111,34 @@ def selectChunk(start: Int, l: Regex, r: Regex, adjl: Int, adjr: Int): Option[(I
     }
   </code></pre>
 <p>The search is for <code>pattern</code> interpreted either as a literal or as a regular expression. The cursor is moved to the start of the match, and the <em>mark</em> (the other end of the selection) is moved to the opposite end.</p>
+<h2 id="branched-regular-expressions">Branched Regular Expressions</h2>
+<p>A <em>branched</em> <code>Regex</code> is a <code>Regex</code> consisting of 1 or more branches, each of which is effectively an independent <code>Regex</code>. A <em>1-branched</em> <code>Regex</code> is effectively equivalent to an ordinary <code>Regex</code>, and all methods of a <code>Regex</code> can be used from a branched Regex.</p>
+<p>A branched <code>Regex</code> matches, in effect, as an alternation of its components. But the <code>Match</code> or <code>StringMatch</code> objects that it yields make available an <span class="math inline"><em>i</em><em>n</em><em>d</em><em>e</em><em>x</em></span>, that indicates which of the component expressions actually matched; and the grouping numbers of <em>each</em> component are indexed from 0: unlike those of an “ordinary” alternation. Branched expresisons make it convenient to:</p>
+<ul>
+<li>Perform multiple simultaneous substitutions</li>
+<li>Perform lexical-scans</li>
+</ul>
+<p>The following convenience functions may be used to generate branched regular expressions:</p>
+<pre><code>Regex.fromSources(sources: Seq[String], ... ):  Regex 
+Regex.fromRegexes(regexes: Seq[Regex],  ...):   Regex </code></pre>
+<h3 id="simultaneous-substitution">Simultaneous Substitution</h3>
+<p>The following method, a sort of simultaneous <code>substituteAll</code> in <code>input</code>, is designed specifically for use from branched regular expressions. The template used in each individual rewrite is the template corresponding to (the index of) the matching instance. There must be at least as many templates as there are branches of <code>re</code>. The groups of each instance are numbered from 1.</p>
+<pre><code>  re.rewriteAll(input: CharSequence, templates: Seq[String], literal: Boolean, stepLimit: Int = 0): (Int, String)</code></pre>
+<p>For example, the following code drops leading uppercase letters from letter-sequences, and turns <code>{</code> into <code>&lt;&lt;</code>, and <code>}</code> into <code>&gt;&gt;</code>.</p>
+<pre><code>val re = Regex.fromSources(List(&quot;([A-Z]+)([a-z]+)&quot;, &quot;[{]&quot;, &quot;[}]&quot;, ... )
+    re.rewriteAll(input, List(&quot;$2&quot;, &quot;&lt;&lt;&quot;, &quot;&gt;&gt;&quot;), ...
+</code></pre>
+<h3 id="lexical-scanning">Lexical Scanning</h3>
+<p>The following method yields a sort of lexical scanner: namely an iterator that applies one of the <code>mappers</code> to each of the instances of <code>re</code> in the input. The mapper used in each case is that corresponding to (the index of) the matching instance. There must be at least as many mappers as there are branches of <code>re</code>. The groups of each instance are numbered from 1.</p>
+<pre><code>  re.allSymbols[SYM](input: CharSequence, mappers: Seq[StringMatch=&gt;SYM], ...): Iterator[SYM] </code></pre>
+<p>For example, the following code yields an iterator that classifies successive subsequences of <code>input</code> into <code>Param</code>s, <code>Identifier</code>s or <code>Noise</code>. A <code>Param</code> takes the form <code>${digits}</code> or <code>$digit</code>.</p>
+<pre><code>val digits:  StringMatch =&gt; Symbol = { case  StringMatch(_, ds) =&gt; Param(ds.toInt) }
+val letters: StringMatch =&gt; Symbol = { case  StringMatch(_, ls) =&gt; Identifier(ls) }
+val noise:   StringMatch =&gt; Symbol = { case  StringMatch(_)  =&gt; Noise }
+
+val re = Regex.fromSources(List(&quot;[$]{([0-9]+)}&quot;, &quot;[$]([0-9])&quot;, &quot;([A-Za-z][A-Za-z0-9])&quot;, &quot;.+&quot;), ... )
+    re.allSymbols(input, List(digits, digits, letters, noise), ...)
+</code></pre>
 <h2 id="implementation-method">Implementation method</h2>
 <p>Regular expressions are translated into programs for an abstract “recognition machine”. During matching, the machine simulates a nondeterministic finite state machine (NFA) by running a pool of <em>deterministic machines</em> (we call them <em>threads</em>) in pseudo-parallel: one for each unrefuted potential match. The state of each thread is embodied in its <em>program counter</em>, together with the starting and ending locations of each (parenthesised) group (it has so far) recognised.</p>
 <p>Subject sequences are offered element by element to each thread in the pool, which either accepts, refutes, or jumps to its “next” instruction. Where there would be more than one outgoing edge from the state of the NFA, this “move” results in the construction of one (or more) additional <em>threads</em>. For example</p>
