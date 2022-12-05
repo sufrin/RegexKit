@@ -277,9 +277,9 @@ successive subsequences of `input` into `Param`s, `Identifier`s or
 \begin{scriptsize}
 ```
 ```
-val digits:  StringMatch => Symbol = { case  StringMatch(_, ds) => Param(ds.toInt) }
-val letters: StringMatch => Symbol = { case  StringMatch(_, ls) => Identifier(ls) }
-val noise:   StringMatch => Symbol = { case  StringMatch(_)  => Noise }
+val digits:  StringMatch => Symbol = { case  m => Param(m.group(1).toInt) }
+val letters: StringMatch => Symbol = { case  m => Identifier(m.group(1)) }
+val noise:   StringMatch => Symbol = { case  m => Noise }
 
 val re = Regex.fromSources(List("[$]{([0-9]+)}", "[$]([0-9])", "([A-Za-z][A-Za-z0-9])", ".+"), ... )
     re.allSymbols(input, List(digits, digits, letters, noise), ...)

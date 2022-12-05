@@ -76,7 +76,7 @@ trait Tree[T]  {
  * A `Branched` is effectively a many-branched `Alt` suitable for
  * use in components such as lexical scanners in which it
  * is necessary to know exactly which branch matches, and in which
- * the groups in each branch are addressed from 1.
+ * the groups in each individual branch are addressed from 1.
  *
  * It cannot be nested within another Tree.
  * {{{
