@@ -70,6 +70,8 @@ trait Tree[T]  {
   }
 
   def prettyPrint: Unit = sufrin.regex.PrettyPrint.prettyPrint(this)
+
+  def groupCount: Int = 0
 }
 
 /**
@@ -122,6 +124,8 @@ case class Branched[T](branches: collection.immutable.Seq[Tree[T]], reverse: Boo
 
   override def canStartWith(t: T): Boolean = true // not interesting yet at the top level
 
+  override def groupCount: Int = branches.map(_.groupCount).max
+
   val canStart: List[String] = {
     val starts = branches.map(_.canStart)
     starts.foldRight(List.empty[String])(_++_)
@@ -171,6 +175,8 @@ case class Guarded[T](expr: Tree[T]) extends Tree[T] with sufrin.regex.PrettyPri
     program.define(skip)
     groups
   }
+
+  override def groupCount: Int = expr.groupCount
 }
 
 case class Literal[T](v: T) extends Tree[T] {
@@ -243,6 +249,8 @@ case class Seq[T](seq: collection.Seq[Tree[T]])  extends Tree[T] {
     }
   }
 
+  override def groupCount: Int = seq.map(_.groupCount).max
+
 }
 
 case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
@@ -265,6 +273,9 @@ case class Alt[T](l: Tree[T], r: Tree[T])  extends Tree[T] {
   def canStartWith(t:T): Boolean  = l.canStartWith(t) || r.canStartWith(t)
   override val nilPotent: Boolean = l.nilPotent || r.nilPotent
   val canStart: List[String] = l.canStart ++ r.canStart
+
+  override def groupCount: Int = l.groupCount max r.groupCount
+
 }
 
 
@@ -290,6 +301,8 @@ case class Span[T](capture: Boolean=true, reverse: Boolean = false, expr: Tree[T
   val canStart: List[String] = expr.canStart
 
   override def source: String = if (capture) s"(${expr.source})" else s"(?:${expr.source})"
+
+  override def groupCount: Int = 1+expr.groupCount
 }
 
 /**
@@ -328,6 +341,7 @@ case class Opt[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
 
   override def source: String = s"${expr.source}?"+(if (short) "?" else "")
 
+  override def groupCount: Int = expr.groupCount
 }
 
 /**
@@ -367,8 +381,7 @@ case class Star[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
 
   def canStartWith(t: T): Boolean = expr.canStartWith(t)
   val canStart: List[String] = expr.canStart
-
-
+  override def groupCount: Int = expr.groupCount
 }
 
 /**
@@ -404,7 +417,7 @@ case class Plus[T](short: Boolean=false, expr: Tree[T]) extends Tree[T] {
 
   def canStartWith(t: T): Boolean = expr.canStartWith(t)
   val canStart: List[String] = expr.canStart
-
+  override def groupCount: Int = expr.groupCount
 }
 
 /** A parseable anchor */
@@ -433,7 +446,7 @@ case class AnchorStart[T](expr: Tree[T]) extends Tree[T] {
   def canStartWith(t: T): Boolean = expr.canStartWith(t) // Not sure
   val canStart: List[String] = expr.canStart
   override val nilPotent: Boolean = expr.nilPotent
-
+  override def groupCount: Int = expr.groupCount
 }
 
 /** Matches at the start of the examined sequence */
@@ -449,5 +462,6 @@ case class AnchorEnd[T](expr: Tree[T]) extends Tree[T] {
   def canStartWith(t: T): Boolean = expr.canStartWith(t) // Not sure
   val canStart: List[String] = expr.canStart
   override val nilPotent: Boolean = expr.nilPotent
+  override def groupCount: Int = expr.groupCount
 }
 

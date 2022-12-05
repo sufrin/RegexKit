@@ -13,15 +13,24 @@ object Rewrite {
    * of the matched pattern.
    *
    * @param rules the sequence of `(pattern -> template)` rewrite rules.
+   *
+   * A  sanity check is performed as the rules are compiled, to ensure that
+   * no template references match groups that cannot be matched in the
+   * corresponding pattern.
    */
   class Rules(rules: Seq[(String, String)]) {
     override def toString: String = {
       rules.mkString("Rules(", "->", ")")
     }
-    private val patterns  = rules.map(_._1)
+    private val patterns  = rules.map(_._1).map(Regex(_))
     private val templates = rules.map(_._2).map(Template(_))
-    private val scan      = Regex.fromSources(patterns)
-
+    private val scan      = Regex.fromRegexes(patterns)
+    locally {
+      var bad: List[String] = Nil
+      for { (p, t) <- patterns.lazyZip(templates) }
+        if (p.tree.groupCount<t.max) bad = s"$p -> $t" :: bad
+      if (bad.nonEmpty) throw new IllegalArgumentException(s"Unsound rules: ${bad.mkString("", ", ", "")}")
+    }
     def apply(input: CharSequence): String =
       { val matches = scan.allPrefixes(input)
         val out = new StringBuilder

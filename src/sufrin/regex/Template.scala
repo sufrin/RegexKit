@@ -5,13 +5,13 @@ object Template {
 
   trait Template {
     /**
-     *  Expand this template, substituting `map(i)` for `Index(i)` and `varMap(n)` for
+     *  Expand this template, substituting `map(i)` for `GroupRef(i)` and `varMap(n)` for
      * `Variable(n)`
      */
     def subst(map: Int=>String, varMap: String=>String): String
 
     /**
-     * @return the largest `i` for Index(i)` in the template
+     * @return the largest `i` for GroupRef(i)` in the template
      */
     def max:  Int
 
@@ -19,6 +19,8 @@ object Template {
      * @return the set of `Variable` names in the template.
      */
     def vars: Set[String] = Set.empty
+
+    override def toString: String = s"Template(${this.subst({ case i:Int=> s"$$$i"}, { case s:String=> s"$s"})})"
   }
 
   case class Sequence(templates: Seq[Template]) extends Template {
@@ -39,7 +41,7 @@ object Template {
     override def vars: Set[String] = Set(name)
   }
 
-  case class Index(index: Int) extends Template {
+  case class GroupRef(index: Int) extends Template {
     def subst(map: Int=>String, varMap: String=>String): String = map(index)
     def max: Int = index
   }
@@ -50,7 +52,7 @@ object Template {
   }
 
   private val rules: List[(String, StringMatch => Template)] = List (
-    "[$]([0-9]+)"        -> { case StringMatch(_,digits) => Index(digits.toInt)},
+    "[$]([0-9]+)"        -> { case StringMatch(_,digits) => GroupRef(digits.toInt)},
     "[$]([A-Za-z]+)"     -> { case StringMatch(_,name) => Variable(name)},
     "([^$]+)"            -> { case s => Text(s.group(0))},
     "([$][$])"           -> { case s => Text("$")},
