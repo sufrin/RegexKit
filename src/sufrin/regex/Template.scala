@@ -6,7 +6,7 @@ object Template {
   trait Template {
     /**
      *  Expand this template, substituting `map(i)` for `GroupRef(i)` and `varMap(n)` for
-     * `Variable(n)`
+     * `VarRef(n)`
      */
     def subst(map: Int=>String, varMap: String=>String): String
 
@@ -16,11 +16,13 @@ object Template {
     def max:  Int
 
     /**
-     * @return the set of `Variable` names in the template.
+     * @return the set of `VarRef` names in the template.
      */
     def vars: Set[String] = Set.empty
 
-    override def toString: String = s"Template(${this.subst({ case i:Int=> s"$$$i"}, { case s:String=> s"$s"})})"
+    /** Reconstruct the source expression */
+    override def toString: String = s"Template(\"${this.subst({ case i:Int=> s"$$$i"}, { case s:String=> s"$s"})}\")"
+    def toStruct: String = s"Template(\"${this.subst({ case i:Int=> s"(GroupRef $i)"}, { case s:String=> s"(VarRef $s)"})}\")"
   }
 
   case class Sequence(templates: Seq[Template]) extends Template {
@@ -35,7 +37,7 @@ object Template {
     override def vars: Set[String] = templates.map(_.vars).reduce(_.union(_))
   }
 
-  case class Variable(name: String) extends Template {
+  case class VarRef(name: String) extends Template {
     def subst(map: Int=>String, varMap: String=>String): String = varMap(name)
     def max: Int = 0
     override def vars: Set[String] = Set(name)
@@ -53,7 +55,7 @@ object Template {
 
   private val rules: List[(String, StringMatch => Template)] = List (
     "[$]([0-9]+)"        -> { case StringMatch(_,digits) => GroupRef(digits.toInt)},
-    "[$]([A-Za-z]+)"     -> { case StringMatch(_,name) => Variable(name)},
+    "[$]([A-Za-z]+)"     -> { case StringMatch(_,name) => VarRef(name)},
     "([^$]+)"            -> { case s => Text(s.group(0))},
     "([$][$])"           -> { case s => Text("$")},
   )
