@@ -24,7 +24,7 @@ object Brackets {
   def apply(bra: String, ket: String): Specification = {
     val bex: Regex = Regex(bra)
     val kex: Regex = Regex(ket)
-    val bracket    = new Regex(Branched[Char](List(bex.tree, kex.tree)), showCode=false, trace=false)
+    val bracket    = new Regex(Branched[Char](List(bex.tree, kex.tree)), showCode=false, trace=false, -1)
     Specification(bex, kex, bracket)
   }
 

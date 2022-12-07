@@ -27,7 +27,10 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
   def steps: Int      = stepLimit - stepsLeft
   def totalSteps: Int = steps + initialSteps
 
-  @inline def checkSteps(): Unit = if (stepsLeft==0) throw new StepLimitExceeded() else stepsLeft -= 1
+  @inline def checkSteps(): Unit =
+    {
+      if (stepsLeft==0) throw new StepLimitExceeded() else stepsLeft -= 1
+    }
 
   /**
    *   Each `Fibre` represents a trace of an DFA recogniser -- for the expression from which

@@ -188,7 +188,7 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * If neither `from` nor `to` appears, then the entire
    * `subject` is considered.
    */
-  def prefixes(subject: CharSequence, from: Int = -1, to: Int = -1): Option[StringMatch] = {
+  def prefixes(subject: CharSequence, from: Int = -1, to: Int = -1, stepLimit: Int = -1): Option[StringMatch] = {
     val state = new State[Char](forwardCode, Groups.empty, IndexedCharSeq(subject), if (from >= 0) from else 0, if (to >= 0) to else subject.length, trace, stepLimit)
     for {theMatch <- state.run(reversed = false, search = false, trace)} yield StringMatch(theMatch)
   }

@@ -43,7 +43,7 @@ object Rewrite {
     def apply(input: CharSequence, output: String => Unit): Unit = {
       val matches = scan.allPrefixes(input)
       while (matches.hasNext) {
-        val m = matches.next
+        val m = matches.next()
         val t = templates(m.theMatch.index)
         output(t.subst({ case n: Int => m.group(n) }, { case name: String => "$" + name }))
       }
