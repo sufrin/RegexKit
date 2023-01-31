@@ -3,8 +3,6 @@ package sufrin.regex
 import sufrin.regex.machine.{Groups, State}
 import sufrin.regex.syntax.{Branched, Parser, Tree}
 
-import java.util.NoSuchElementException
-
 object Regex {
   type CharMatch = Match[Char]
 
@@ -377,7 +375,8 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
    * When this `Regex` is *not* formed from a `Branched`, this yields the simple rewriting of each of its matching instances
    * in `input` by the expansion of `templates(0)` (or, if `literal`, its literal text). The rewritten text is returned
    * together with a count of the number of substitutions that were made. The groups of each branch are referenced
-   * from 1.
+   * from 1. This behaviour relies on the match of a non-`Branch`ed expression yielding an index of -1` (seel also
+   * the comment marked `****` in the main loop).
    *
    * When this `Regex` *is*  formed as a `Branch`, the  template used in each rewrite is the template corresponding to
    * (the index of) the matching instance. There must be at least as many templates as there are branches.
@@ -399,7 +398,9 @@ class Regex(val tree: Tree[Char], var showCode: Boolean, var trace: Boolean, val
         result.addOne(input.charAt(copyFrom))
         copyFrom += 1
       }
-      val theTemplate = templates(instance.theMatch.index)
+      // **** if the pattern was a non-Branch regex then the match index will be -1
+      val theIndex = instance.theMatch.index max 0
+      val theTemplate = templates(theIndex)
       result.addAll(if (literal) theTemplate else instance.substitute(theTemplate))
       copyFrom = instance.end
     }

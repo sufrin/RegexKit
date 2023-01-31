@@ -99,14 +99,19 @@ class State[T](program: Program[T], groups: Groups, input: IndexedSeq[T], start:
    *  the 1965 Thompson paper) that an appropriate technique for /searching/ rather than
    *  /matching/ is to spawn another thread at the origin of the program whenever the machine
    *  is about to shift to consideration of the next character.
-   *  Although implemented here, the technique cannot be guaranteed to capture the content of
-   *  nested groups appropriately during a search; indeed it can only ever be relied upon
-   *  to find the end position of a match. One case in point is an expression of the form
-   *  `(R1)+R2` when `R2` is empty, or has a prefix that may match a prefix of `R1`.
+   *  Although implemented here, the technique does not in general capture the content of
+   *  nested groups appropriately during a search. In fact it can only ever be relied upon
+   *  to find the end position of a match. One concrete example illustrating non-capture
+   *  is an expression of the form `(R1)+R2` when `R2` is empty, or has a prefix
+   *  that may match a prefix of `R1`.
    *
-   *  My judgment is that under most circumstances it is not worth trying to compose the above
+   *  My judgment is that in applications such as text editors it is not worth trying to compose the above
    *  technique to find the endpoint of a match with a quadratic "match backwards" (from the endpoint)
    *  to capture groups accurately.
+   *
+   *  TODO: implement `findEndOfPrefix`, and `findStartOfSuffix` using the groupless search technique, and
+   *   then use these (composed with groupful `findSuffix`/`findPrefix`)  in faster `seekPrefix` and `seekSuffix`
+   *   methods (that might be more useful in some settings).
    */
   def oneProgramStep(searching: Boolean, logPos: Int, in: T, pc: Int, groups: Groups): Result = {
 
